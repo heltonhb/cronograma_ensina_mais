@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Cronograma - Ensina Mais Turma da Mônica</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<div id="auth-container" class="modal">
+    <div class="modal__container modal--small">
+        <div class="modal__header">
+            <h2>Bem-vindo(a)</h2>
+        </div>
+        <div class="modal__body">
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="email" class="form-label">Email</label>
+                    <input type="email" id="email" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="password" class="form-label">Senha</label>
+                    <input type="password" id="password" class="form-control" required>
+                </div>
+                <div class="modal__footer" style="border-top: none; padding-top: 0;">
+                    <button type="button" id="signup-btn" class="btn btn--secondary">Cadastrar</button>
+                    <button type="submit" id="login-btn" class="btn btn--primary">Entrar</button>
+                </div>
+                <p id="auth-error" style="color: var(--color-error); font-size: var(--font-size-sm); text-align: center; margin-top: 1rem;"></p>
+            </form>
+        </div>
+    </div>
+</div>
+
+    <div id="toast-container" class="toast-container"></div>
+
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar__header">
+            <div class="sidebar__logo">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 19.5C4 18.837 4.26339 18.2011 4.73223 17.7322C5.20107 17.2634 5.83696 17 6.5 17H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M4 12.5C4 11.837 4.26339 11.2011 4.73223 10.7322C5.20107 10.2634 5.83696 10 6.5 10H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M4 5.5C4 4.83696 4.26339 4.20107 4.73223 3.73223C5.20107 3.26339 5.83696 3 6.5 3H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <h2>Ensina Mais</h2>
+            </div>
+            <button class="sidebar__toggle" id="sidebar-toggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+        <ul class="sidebar__nav">
+            <li><a href="#" class="nav-link active" data-page="dashboard">📊 Dashboard</a></li>
+            <li><a href="#" class="nav-link" data-page="cronograma">⏰ Cronograma</a></li>
+            <li><a href="#" class="nav-link" data-page="templates">📋 Templates</a></li>
+            <li><a href="#" class="nav-link" data-page="leads">📓 Acompanhamento</a></li>
+            <li><a href="#" class="nav-link" data-page="scripts">📝 Scripts</a></li>
+            <li><a href="#" class="nav-link" data-page="relatorios">📈 Relatórios</a></li>
+            <li><a href="#" class="nav-link" data-page="configuracoes">⚙️ Configurações</a></li>
+            <li><a href="#" id="logout-btn" class="nav-link">🚪 Sair</a></li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+        <section id="dashboard" class="page active">
+            <div class="page-header">
+                <h1>Dashboard</h1>
+                <div class="current-time" id="current-time"></div>
+            </div>
+            
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-card__icon">✅</div>
+                    <div class="metric-card__content">
+                        <h3 id="completed-activities">0</h3>
+                        <p>Atividades Concluídas Hoje</p>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-card__icon">📞</div>
+                    <div class="metric-card__content">
+                        <h3 id="contacted-leads">0</h3>
+                        <p>Leads Contatados Hoje</p>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-card__icon">🏫</div>
+                    <div class="metric-card__content">
+                        <h3 id="visits-conducted">0</h3>
+                        <p>Visitas Realizadas Hoje</p>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-card__icon">🎯</div>
+                    <div class="metric-card__content">
+                        <h3 id="efficiency-rate">0%</h3>
+                        <p>Metas Atingidas Hoje</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="card">
+                    <div class="card__header">
+                        <h3>Performance Semanal (Taxa de Conclusão)</h3>
+                    </div>
+                    <div class="card__body">
+                        <div class="chart-container" style="height: 300px; position: relative;">
+                            <canvas id="performance-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card__header">
+                        <h3>Atividades do Dia</h3>
+                    </div>
+                    <div class="card__body">
+                        <div id="today-activities" class="activity-list"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="cronograma" class="page">
+            <div class="page-header">
+                <h1>Cronograma de Atividades</h1>
+                <div class="schedule-controls">
+                    <select id="template-selector" class="form-control">
+                        <option value="">Aplicar Template</option>
+                    </select>
+                    <button class="btn btn--secondary" id="compact-mode-btn">📄 Modo Compacto</button>
+                    <div class="schedule-modes">
+                        <button class="btn btn--secondary" id="edit-mode-btn">✏️ Modo Edição</button>
+                        <button class="btn btn--secondary hidden" id="view-mode-btn">👁️ Modo Visualização</button>
+                    </div>
+                    <button class="btn btn--secondary" data-action="finish-day">🏁 Finalizar Dia</button>
+                    <button class="btn btn--primary" data-action="add-activity">➕ Nova Atividade</button>
+                </div>
+            </div>
+            
+            <div id="active-template-display" class="active-template-display hidden"></div>
+
+            <div class="card">
+                <div class="card__header" id="schedule-filter-controls">
+                    <div class="filter-buttons">
+                        <button class="btn btn--sm" data-action="filter-status" data-status="all">Todos</button>
+                        <button class="btn btn--sm" data-action="filter-status" data-status="nao_iniciado">Não Iniciado</button>
+                        <button class="btn btn--sm" data-action="filter-status" data-status="em_andamento">Em Andamento</button>
+                        <button class="btn btn--sm" data-action="filter-status" data-status="concluido">Concluído</button>
+                    </div>
+                </div>
+                <div class="card__body">
+                    <div class="schedule-timeline" id="schedule-timeline">
+                        <div class="timeline-header">
+                            <div class="timeline-hours">
+                                <div class="hour-marker">08:00</div>
+                                <div class="hour-marker">09:00</div>
+                                <div class="hour-marker">10:00</div>
+                                <div class="hour-marker">11:00</div>
+                                <div class="hour-marker">12:00</div>
+                                <div class="hour-marker">13:00</div>
+                                <div class="hour-marker">14:00</div>
+                                <div class="hour-marker">15:00</div>
+                                <div class="hour-marker">16:00</div>
+                                <div class="hour-marker">17:00</div>
+                                <div class="hour-marker">18:00</div>
+                            </div>
+                        </div>
+                        <div class="timeline-content" id="timeline-activities">
+                        </div>
+                    </div>
+        
+                    <div class="schedule-grid" id="schedule-grid">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="templates" class="page">
+            <div class="page-header">
+                <h1>Gerenciamento de Templates</h1>
+                <button class="btn btn--primary" data-action="save-current-template">💾 Salvar Cronograma Atual</button>
+            </div>
+
+            <div class="templates-section">
+                <h2>Templates Padrão</h2>
+                <div class="templates-grid" id="templates-grid">
+                </div>
+            </div>
+
+            <div class="templates-section">
+                <h2>Meus Templates</h2>
+                <div class="custom-templates-grid" id="custom-templates-grid">
+                </div>
+            </div>
+        </section>
+
+        <section id="leads" class="page">
+            <div class="page-header">
+                <h1>Acompanhamento Diário de Atendimento</h1>
+                <div class="form-group">
+                    <label for="daily-log-date" class="form-label sr-only">Data</label>
+                    <input type="date" id="daily-log-date" class="form-control">
+                </div>
+            </div>
+
+            <div class="card">
+                <form id="daily-log-form" class="card__body">
+                    <div class="daily-log-grid">
+                        <div class="form-group">
+                            <label for="log-leads_novos" class="form-label">Leads Novos Cadastrados</label>
+                            <input type="number" id="log-leads_novos" class="form-control" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="log-ligacoes" class="form-label">Ligações</label>
+                            <input type="number" id="log-ligacoes" class="form-control" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="log-agendamentos" class="form-label">Agendamentos</label>
+                            <input type="number" id="log-agendamentos" class="form-control" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="log-visitas" class="form-label">Visitas</label>
+                            <input type="number" id="log-visitas" class="form-control" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="log-matriculas" class="form-label">Matrículas</label>
+                            <input type="number" id="log-matriculas" class="form-control" min="0" value="0">
+                        </div>
+
+                        <div class="form-group">
+    <label for="log-leads_negativados" class="form-label">Leads Negativados</label>
+    <input type="number" id="log-leads_negativados" class="form-control" min="0" value="0">
+</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="log-observacoes" class="form-label">Observações Importantes</label>
+                        <textarea id="log-observacoes" rows="4" class="form-control"></textarea>
+                    </div>
+                    <div class="daily-log-actions">
+                        <button type="submit" class="btn btn--primary">💾 Salvar Acompanhamento do Dia</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <section id="scripts" class="page">
+            <div class="page-header">
+                <h1>Scripts de Venda - Método Matrícula Implacável</h1>
+                 <button class="btn btn--primary" data-action="add-phase">➕ Nova Fase</button>
+            </div>
+            <div class="scripts-layout">
+                <nav class="scripts-nav card" id="scripts-nav">
+                </nav>
+                <div class="scripts-content" id="scripts-content">
+                </div>
+            </div>
+        </section>
+        
+        <section id="relatorios" class="page">
+            <div class="page-header">
+                <h1>Relatórios de Performance</h1>
+                <div class="report-controls">
+                    <div class="report-source-toggle">
+                        <button class="btn btn--sm active" data-action="set-report-source" data-source="cronograma">Dados do Cronograma</button>
+                        <button class="btn btn--sm" data-action="set-report-source" data-source="acompanhamento">Dados do Acompanhamento</button>
+                    </div>
+                     <select id="period-select" class="form-control">
+                        <option value="7">Últimos 7 dias</option>
+                        <option value="15">Últimos 15 dias</option>
+                        <option value="30">Últimos 30 dias</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card__header">
+                    <h3>Relatórios Exportáveis Avançados</h3>
+                </div>
+                <div class="card__body" style="display: flex; gap: 16px; flex-wrap: wrap;">
+                    <button class="btn btn--secondary" data-action="export-weekly-report">
+                        📄 Gerar Relatório Executivo Semanal
+                    </button>
+                    <button class="btn btn--secondary" data-action="export-roi-report">
+                        💰 Gerar Análise de ROI de Tempo
+                    </button>
+                </div>
+            </div>
+            
+            <div class="report-summary report-summary--5-items">
+                <div class="summary-card">
+                    <h3 id="report-summary-1-value">0</h3>
+                    <p id="report-summary-1-label">Total de Atividades</p>
+                </div>
+                <div class="summary-card">
+                    <h3 id="report-summary-2-value">0%</h3>
+                    <p id="report-summary-2-label">Taxa de Conclusão</p>
+                </div>
+                <div class="summary-card">
+                    <h3 id="report-summary-3-value">0h</h3>
+                    <p id="report-summary-3-label">Tempo Investido</p>
+                </div>
+                <div class="summary-card">
+                    <h3 id="report-summary-4-value">0</h3>
+                    <p id="report-summary-4-label">Leads Contatados</p>
+                </div>
+                <div class="summary-card">
+                    <h3 id="report-summary-5-value">0</h3>
+                    <p id="report-summary-5-label">Leads Novos (Hoje)</p>
+                </div>
+            </div>
+            
+            <div class="card hidden" id="insights-card">
+                <div class="card__header">
+                    <h3>💡 Insights Automáticos</h3>
+                </div>
+                <div class="card__body" id="insights-container">
+                    </div>
+            </div>
+
+            <div class="card hidden" id="conversion-rates-card">
+                <div class="card__header">
+                    <h3>Taxas de Conversão do Funil (Acompanhamento)</h3>
+                </div>
+                <div class="card__body">
+                    <div class="report-summary" id="conversion-rates-grid">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card__header">
+                    <h3 id="report-chart-title">Distribuição de Atividades por Categoria</h3>
+                </div>
+                <div class="card__body">
+                    <div class="chart-container" style="height: 350px; position: relative;">
+                        <canvas id="report-main-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card" id="efficiency-metrics-card" style="display: none;">
+                <div class="card__header">
+                    <h3>Análise de Eficiência e Padrões</h3>
+                </div>
+                <div class="card__body" id="efficiency-metrics-content">
+                    </div>
+            </div>
+
+            <div class="card hidden" id="heatmap-container">
+                <div class="card__header">
+                    <h3>Heatmap de Produtividade (Atividades Concluídas)</h3>
+                </div>
+                <div class="card__body" id="heatmap-content">
+                </div>
+            </div>
+            
+            <div class="card" id="activity-details-card">
+                <div class="card__header">
+                    <h3 id="activity-details-title">Detalhamento de Atividades</h3>
+                </div>
+                <div class="card__body">
+                    <div class="table-container">
+                        <table class="activity-detail-table">
+                            <thead>
+                                <tr>
+                                    <th data-action="sort-report-table" data-sort-by="nome" style="cursor: pointer;">Atividade <span class="sort-indicator"></span></th>
+                                    <th data-action="sort-report-table" data-sort-by="categoria" style="cursor: pointer;">Categoria <span class="sort-indicator"></span></th>
+                                    <th data-action="sort-report-table" data-sort-by="horario_inicio" style="cursor: pointer;">Horário <span class="sort-indicator"></span></th>
+                                    <th data-action="sort-report-table" data-sort-by="status" style="cursor: pointer;">Status <span class="sort-indicator"></span></th>
+                                    <th data-action="sort-report-table" data-sort-by="prioridade" style="cursor: pointer;">Prioridade <span class="sort-indicator"></span></th>
+                                    <th data-action="sort-report-table" data-sort-by="leads_contatados" style="cursor: pointer;">Leads (R/M) <span class="sort-indicator"></span></th>
+                                    <th data-action="sort-report-table" data-sort-by="visitas_realizadas" style="cursor: pointer;">Visitas (R/M) <span class="sort-indicator"></span></th>
+                                </tr>
+                            </thead>
+                            <tbody id="activity-details-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="configuracoes" class="page">
+            <div class="page-header">
+                <h1>Configurações</h1>
+            </div>
+            
+            <div class="card">
+                 <div class="card__header">
+                    <h3>Backup e Restauração</h3>
+                </div>
+                <div class="card__body">
+                    <p>Salve todos os seus dados (atividades, templates, scripts) em um arquivo para backup ou para transferir para outro computador.</p>
+                    <div class="daily-log-actions" style="justify-content: flex-start; gap: var(--space-12);">
+                        <button class="btn btn--primary" data-action="export-data">📤 Exportar Dados</button>
+                        <button class="btn btn--secondary" data-action="trigger-import">📥 Importar Dados</button>
+                        <input type="file" id="import-file-input" accept=".json" style="display: none;">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card__header">
+                    <h3>Gerenciar Dados</h3>
+                </div>
+                <div class="card__body">
+                    <p>A aplicação salva seus dados no navegador. Você pode limpar todos os dados para começar do zero.</p>
+                    <button class="btn btn--outline" data-action="reset-data">🗑️ Limpar Todos os Dados</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="activity-modal" class="modal hidden">
+        <div class="modal__backdrop"></div>
+        <div class="modal__container">
+            <div class="modal__header">
+                <h2 id="activity-modal-title">Nova Atividade</h2>
+                <button class="modal__close" data-action="close-modal" aria-label="Close modal">&times;</button>
+            </div>
+            <form id="activity-form" class="modal__body">
+                <input type="hidden" id="activity-id">
+
+                <div class="form-group">
+    <label for="activity-observations" class="form-label">Observações</label>
+    <textarea id="activity-observations" class="form-control" rows="2"></textarea>
+</div>
+
+<div class="form-group">
+    <label class="form-label">Participantes</label>
+    <div id="activity-participants-list" class="participants-checkbox-group">
+        </div>
+</div>
+
+                <div class="form-group">
+                    <label for="activity-name" class="form-label">Nome da Atividade</label>
+                    <input type="text" id="activity-name" class="form-control" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="activity-start" class="form-label">Horário Início</label>
+                        <input type="time" id="activity-start" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="activity-end" class="form-label">Horário Fim</label>
+                        <input type="time" id="activity-end" class="form-control" required>
+                    </div>
+                </div>
+                 <div class="form-group">
+                    <label for="activity-duration" class="form-label">Duração</label>
+                    <input type="text" id="activity-duration" class="form-control" disabled>
+                </div>
+                <div class="form-group">
+                    <label for="activity-description" class="form-label">Descrição</label>
+                    <textarea id="activity-description" class="form-control" rows="3"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="activity-category" class="form-label">Categoria</label>
+                        <select id="activity-category" class="form-control" required>
+                            <option value="Preparação">Preparação</option>
+                            <option value="Prospecção">Prospecção</option>
+                            <option value="Follow-up">Follow-up</option>
+                            <option value="Atendimento">Atendimento</option>
+                            <option value="Conversão">Conversão</option>
+                            <option value="Reativação">Reativação</option>
+                            <option value="Finalização">Finalização</option>
+                            <option value="Descanso">Descanso</option>
+                            <option value="Reunião">Reunião</option>
+                            <option value="Treinamento">Treinamento</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="activity-priority" class="form-label">Prioridade</label>
+                        <select id="activity-priority" class="form-control" required>
+                            <option value="Alta">Alta</option>
+                            <option value="Média">Média</option>
+                            <option value="Baixa">Baixa</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="activity-type" class="form-label">Tipo</label>
+                        <select id="activity-type" class="form-control" required>
+                            <option value="Obrigatória">Obrigatória</option>
+                            <option value="Opcional">Opcional</option>
+                            <option value="Flexível">Flexível</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="activity-status" class="form-label">Status</label>
+                        <select id="activity-status" class="form-control" required>
+                            <option value="nao_iniciado">Não Iniciado</option>
+                            <option value="em_andamento">Em Andamento</option>
+                            <option value="concluido">Concluído</option>
+                            <option value="pausado">Pausado</option>
+                            <option value="cancelado">Cancelado</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="activity-meta-leads" class="form-label">Meta Leads</label>
+                        <input type="number" id="activity-meta-leads" class="form-control" min="0" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="activity-meta-visits" class="form-label">Meta Visitas</label>
+                        <input type="number" id="activity-meta-visits" class="form-control" min="0" value="0">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="activity-contacted-leads" class="form-label">Leads Contatados (Ligações)</label>
+                        <input type="number" id="activity-contacted-leads" class="form-control" min="0" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="activity-realized-visits" class="form-label">Visitas Realizadas</label>
+                        <input type="number" id="activity-realized-visits" class="form-control" min="0" value="0">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="activity-schedules-made" class="form-label">Agendamentos Realizados</label>
+                    <input type="number" id="activity-schedules-made" class="form-control" min="0" value="0">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Ícone e Cor</label>
+                    <div class="form-row">
+                         <div id="icon-selector" class="icon-selector"></div>
+                         <div id="color-selector" class="color-selector"></div>
+                    </div>
+                </div>
+                <div class="modal__footer">
+                    <button type="button" class="btn btn--secondary" data-action="close-modal">Cancelar</button>
+                    <button type="button" class="btn btn--secondary" id="activity-duplicate" style="display: none;">Duplicar</button>
+                    <button type="submit" class="btn btn--primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="template-modal" class="modal hidden">
+        <div class="modal__backdrop"></div>
+        <div class="modal__container">
+            <div class="modal__header">
+                <h2 id="template-modal-title">Salvar Template</h2>
+                <button class="modal__close" data-action="close-modal" aria-label="Close modal">&times;</button>
+            </div>
+            <form id="template-form" class="modal__body">
+                <div class="form-group">
+                    <label for="template-name" class="form-label">Nome do Template</label>
+                    <input type="text" id="template-name" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="template-description" class="form-label">Descrição</label>
+                    <textarea id="template-description" class="form-control" rows="3"></textarea>
+                </div>
+                <div class="modal__footer">
+                    <button type="button" class="btn btn--secondary" data-action="close-modal">Cancelar</button>
+                    <button type="submit" class="btn btn--primary">Salvar Template</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="script-modal" class="modal hidden">
+        <div class="modal__backdrop"></div>
+        <div class="modal__container">
+            <div class="modal__header">
+                <h2 id="script-modal-title">Novo Script</h2>
+                <button class="modal__close" data-action="close-modal" aria-label="Close modal">&times;</button>
+            </div>
+            <form id="script-form" class="modal__body">
+                <input type="hidden" id="script-phase-index">
+                <input type="hidden" id="script-id">
+                <div class="form-group">
+                    <label for="script-title" class="form-label">Título do Script</label>
+                    <input type="text" id="script-title" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="script-content" class="form-label">Conteúdo do Script</label>
+                    <textarea id="script-content" class="form-control" rows="6" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="script-type" class="form-label">Tipo</label>
+                    <select id="script-type" class="form-control">
+                        <option value="geral">Geral</option>
+                        <option value="dor">Foco na Dor</option>
+                        <option value="ganho">Foco no Ganho</option>
+                    </select>
+                </div>
+                <div class="modal__footer">
+                    <button type="button" class="btn btn--secondary" data-action="close-modal">Cancelar</button>
+                    <button type="submit" class="btn btn--primary">Salvar Script</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    
+    
+    <div id="phase-modal" class="modal hidden">
+        <div class="modal__backdrop"></div>
+        <div class="modal__container">
+            <div class="modal__header">
+                <h2 id="phase-modal-title">Nova Fase</h2>
+                <button class="modal__close" data-action="close-modal" aria-label="Close modal">&times;</button>
+            </div>
+            <form id="phase-form" class="modal__body">
+                <input type="hidden" id="phase-index">
+                <div class="form-group">
+                    <label for="phase-name" class="form-label">Nome da Fase</label>
+                    <input type="text" id="phase-name" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="phase-objective" class="form-label">Objetivo da Fase</label>
+                    <textarea id="phase-objective" class="form-control" rows="3" required></textarea>
+                </div>
+                <div class="modal__footer">
+                    <button type="button" class="btn btn--secondary" data-action="close-modal">Cancelar</button>
+                    <button type="submit" class="btn btn--primary">Salvar Fase</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="confirmation-modal" class="modal hidden">
+        <div class="modal__backdrop"></div>
+        <div class="modal__container modal--small">
+            <div class="modal__header">
+                <h2 id="confirmation-title">Confirmar Ação</h2>
+                <button class="modal__close" data-action="close-modal" aria-label="Close modal">&times;</button>
+            </div>
+            <div class="modal__body">
+                <p id="confirmation-message">Tem certeza que deseja continuar?</p>
+            </div>
+            <div class="modal__footer">
+                <button type="button" class="btn btn--secondary" data-action="close-modal">Cancelar</button>
+                <button type="button" class="btn btn--primary" id="confirmation-confirm">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-firestore-compat.js"></script>
+
+    <script src="firebase-config.js"></script>
+
+    <script src="app.js"></script>
+</body>
+</html>
+
+   
