@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- LÓGICA DE AUTENTICAÇÃO ---
 
-    auth.onAuthStateChanged(user => {
+    firebase.onAuthStateChanged(auth, user => {
         if (user) {
             // Usuário está logado
             currentUser = user;
@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
-        auth.signInWithEmailAndPassword(email, password)
+        firebase.signInWithEmailAndPassword(auth, email, password)
             .catch(error => {
                 console.error("Erro de login:", error);
                 authError.textContent = "Email ou senha inválidos.";
@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
     signupBtn.addEventListener('click', () => {
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
-        auth.createUserWithEmailAndPassword(email, password)
+        firebase.createUserWithEmailAndPassword(auth, email, password)
             .catch(error => {
                 console.error("Erro de cadastro:", error);
                 authError.textContent = "Erro ao cadastrar. Verifique o email ou a senha (mínimo 6 caracteres).";
@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Evento de Logout
     logoutBtn.addEventListener('click', () => {
-        auth.signOut();
+        firebase.signOut(auth);
     });
 
 
@@ -116,8 +116,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!currentUser) return;
         const dataToSave = { ...appData };
         try {
-            const userDocRef = db.collection('userData').doc(currentUser.uid);
-            await userDocRef.set(dataToSave, { merge: true });
+            const userDocRef = firebase.doc(db, 'userData', currentUser.uid);
+            await firebase.setDoc(userDocRef, dataToSave, { merge: true });
             console.log("Dados salvos no Firestore!");
         } catch (error) {
             console.error("Erro ao salvar dados:", error);
@@ -127,11 +127,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const loadDataFromFirestore = async () => {
         if (!currentUser) return;
-        const userDocRef = db.collection('userData').doc(currentUser.uid);
+        const userDocRef = firebase.doc(db, 'userData', currentUser.uid);
         try {
-            const doc = await userDocRef.get();
-            if (doc.exists) {
-                const savedData = doc.data();
+            const snap = await firebase.getDoc(userDocRef);
+            if (snap.exists()) {
+                const savedData = snap.data();
                 appData = { ...initialState, ...savedData };
                 console.log("Dados carregados do Firestore!");
             } else {
@@ -169,11 +169,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const query = (selector) => document.querySelector(selector);
     const queryAll = (selector) => document.querySelectorAll(selector);
 
-     const showToast = (message, type = 'info', icon = '') => {
+    const showToast = (message, type = 'info', icon = '') => {
         const container = getEl('toast-container');
         const toast = document.createElement('div');
         toast.className = `toast toast--${type}`;
-        toast.innerHTML = `${icon} ${message}`;
+        const iconSpan = document.createElement('span');
+        iconSpan.textContent = icon;
+        const msgSpan = document.createElement('span');
+        msgSpan.textContent = ` ${message}`;
+        toast.appendChild(iconSpan);
+        toast.appendChild(msgSpan);
         container.appendChild(toast);
         setTimeout(() => toast.remove(), 3000);
     };
@@ -227,12 +232,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     const renderEmptyState = (container, message, title) => {
-        container.innerHTML = `
-            <div class="empty-state">
-                <h3>${title}</h3>
-                <p>${message}</p>
-            </div>
-        `;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'empty-state';
+        const h3 = document.createElement('h3');
+        h3.textContent = title;
+        const p = document.createElement('p');
+        p.textContent = message;
+        wrapper.appendChild(h3);
+        wrapper.appendChild(p);
+        container.replaceChildren(wrapper);
     };
 
     const updateClock = () => {
@@ -241,7 +249,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const now = new Date();
         const timeString = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         const dateString = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
-        clockElement.innerHTML = `${timeString}<br><small>${dateString}</small>`;
+        clockElement.replaceChildren();
+        const timeNode = document.createTextNode(timeString);
+        const br = document.createElement('br');
+        const small = document.createElement('small');
+        small.textContent = dateString;
+        clockElement.appendChild(timeNode);
+        clockElement.appendChild(br);
+        clockElement.appendChild(small);
     };
 
     // --- NOVO ---
@@ -360,16 +375,37 @@ const renderParticipantAvatars = (participants) => {
             return;
         }
 
-        container.innerHTML = sortedActivities.map(activity => `
-            <div class="activity-item" style="border-left-color: ${activity.cor};">
-                <div class="activity-item__icon">${activity.icone}</div>
-                <div class="activity-item__content">
-                    <div class="activity-item__name">${activity.nome}</div>
-                    <div class="activity-item__time">${activity.horario_inicio} - ${activity.horario_fim}</div>
-                </div>
-                <div class="activity-item__status status-${activity.status}">${getStatusText(activity.status)}</div>
-            </div>
-        `).join('');
+        const fragment = document.createDocumentFragment();
+        sortedActivities.forEach(activity => {
+            const item = document.createElement('div');
+            item.className = 'activity-item';
+            item.style.borderLeftColor = activity.cor;
+
+            const iconDiv = document.createElement('div');
+            iconDiv.className = 'activity-item__icon';
+            iconDiv.textContent = activity.icone;
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'activity-item__content';
+            const nameDiv = document.createElement('div');
+            nameDiv.className = 'activity-item__name';
+            nameDiv.textContent = activity.nome;
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'activity-item__time';
+            timeDiv.textContent = `${activity.horario_inicio} - ${activity.horario_fim}`;
+            contentDiv.appendChild(nameDiv);
+            contentDiv.appendChild(timeDiv);
+
+            const statusDiv = document.createElement('div');
+            statusDiv.className = `activity-item__status status-${activity.status}`;
+            statusDiv.textContent = getStatusText(activity.status);
+
+            item.appendChild(iconDiv);
+            item.appendChild(contentDiv);
+            item.appendChild(statusDiv);
+            fragment.appendChild(item);
+        });
+        container.replaceChildren(fragment);
     };
 
     const createPerformanceChart = () => {
@@ -490,7 +526,14 @@ const renderParticipantAvatars = (participants) => {
                 el.className = 'timeline-activity';
                 el.dataset.id = activity.id;
                 el.style.cssText = `border-color: ${activity.cor}; background-color: ${activity.cor}20; left: ${left}%; width: ${width}%; top: ${lane * 36 + 5}px;`;
-                el.innerHTML = `<div class="timeline-activity__icon">${activity.icone}</div><div class="timeline-activity__name">${activity.nome}</div>`;
+                const iconDiv = document.createElement('div');
+                iconDiv.className = 'timeline-activity__icon';
+                iconDiv.textContent = activity.icone;
+                const nameDiv = document.createElement('div');
+                nameDiv.className = 'timeline-activity__name';
+                nameDiv.textContent = activity.nome;
+                el.appendChild(iconDiv);
+                el.appendChild(nameDiv);
                 container.appendChild(el);
             });
     };
@@ -701,15 +744,29 @@ const renderParticipantAvatars = (participants) => {
     };
 
     const renderIconSelector = (selectedIcon) => {
-        getEl('icon-selector').innerHTML = appData.icones_disponiveis.map(icon =>
-            `<div class="icon-option ${icon === selectedIcon ? 'selected' : ''}" data-icon="${icon}">${icon}</div>`
-        ).join('');
+        const container = getEl('icon-selector');
+        const frag = document.createDocumentFragment();
+        appData.icones_disponiveis.forEach(icon => {
+            const div = document.createElement('div');
+            div.className = `icon-option ${icon === selectedIcon ? 'selected' : ''}`;
+            div.dataset.icon = icon;
+            div.textContent = icon;
+            frag.appendChild(div);
+        });
+        container.replaceChildren(frag);
     };
 
     const renderColorSelector = (selectedColor) => {
-        getEl('color-selector').innerHTML = appData.cores_disponiveis.map(color =>
-            `<div class="color-option ${color === selectedColor ? 'selected' : ''}" data-color="${color}" style="background-color:${color}"></div>`
-        ).join('');
+        const container = getEl('color-selector');
+        const frag = document.createDocumentFragment();
+        appData.cores_disponiveis.forEach(color => {
+            const div = document.createElement('div');
+            div.className = `color-option ${color === selectedColor ? 'selected' : ''}`;
+            div.dataset.color = color;
+            div.style.backgroundColor = color;
+            frag.appendChild(div);
+        });
+        container.replaceChildren(frag);
     };
 
     const updateDurationDisplay = () => {
@@ -743,7 +800,14 @@ const renderParticipantAvatars = (participants) => {
     `;
 
     const renderTemplates = () => {
-        getEl('templates-grid').innerHTML = appData.templates.map(t => createTemplateCard(t, false)).join('');
+        const grid = getEl('templates-grid');
+        const frag = document.createDocumentFragment();
+        appData.templates.forEach(t => {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = createTemplateCard(t, false);
+            frag.appendChild(wrapper.firstElementChild);
+        });
+        grid.replaceChildren(frag);
     };
 
     const renderCustomTemplates = () => {
@@ -752,15 +816,35 @@ const renderParticipantAvatars = (participants) => {
             renderEmptyState(container, 'Salve o cronograma atual como um template para reutilizá-lo.', 'Nenhum Template Personalizado');
             return;
         }
-        container.innerHTML = appData.custom_templates.map(t => createTemplateCard(t, true)).join('');
+        const frag = document.createDocumentFragment();
+        appData.custom_templates.forEach(t => {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = createTemplateCard(t, true);
+            frag.appendChild(wrapper.firstElementChild);
+        });
+        container.replaceChildren(frag);
     };
     
     const populateTemplateSelector = () => {
         const selector = getEl('template-selector');
-        selector.innerHTML = '<option value="">Aplicar Template</option>';
-        appData.templates.forEach(t => selector.innerHTML += `<option value="std-${t.id}">${t.nome}</option>`);
+        selector.replaceChildren();
+        const first = document.createElement('option');
+        first.value = '';
+        first.textContent = 'Aplicar Template';
+        selector.appendChild(first);
+        appData.templates.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = `std-${t.id}`;
+            opt.textContent = t.nome;
+            selector.appendChild(opt);
+        });
         if (appData.custom_templates) {
-            appData.custom_templates.forEach(t => selector.innerHTML += `<option value="cst-${t.id}">[Meu] ${t.nome}</option>`);
+            appData.custom_templates.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = `cst-${t.id}`;
+                opt.textContent = `[Meu] ${t.nome}`;
+                selector.appendChild(opt);
+            });
         }
     };
 
@@ -866,11 +950,16 @@ const renderParticipantAvatars = (participants) => {
         appData.script_phases.forEach((phaseData, index) => {
             const li = document.createElement('li');
             const isActive = index === appData.activeScriptPhase;
-            li.innerHTML = `<a href="#" class="scripts-nav-item ${isActive ? 'active' : ''}" data-action="select-phase" data-phase-index="${index}">${phaseData.phase}</a>`;
+            const a = document.createElement('a');
+            a.href = '#';
+            a.className = `scripts-nav-item ${isActive ? 'active' : ''}`;
+            a.dataset.action = 'select-phase';
+            a.dataset.phaseIndex = String(index);
+            a.textContent = phaseData.phase;
+            li.appendChild(a);
             navList.appendChild(li);
         });
-        navContainer.innerHTML = '';
-        navContainer.appendChild(navList);
+        navContainer.replaceChildren(navList);
 
         renderScriptContent(appData.activeScriptPhase);
     };
@@ -891,8 +980,8 @@ const renderParticipantAvatars = (participants) => {
         let contentHTML = `
             <div class="page-header" style="margin-bottom: var(--space-12); align-items: flex-start;">
                 <div>
-                    <h2>${data.phase}</h2>
-                    <p class="phase-objective">${data.objective}</p>
+                    <h2>${String(data.phase)}</h2>
+                    <p class="phase-objective">${String(data.objective)}</p>
                 </div>
                 <div class="template-card__actions">
                     <button class="template-card__action" data-action="edit-phase" data-phase-index="${phaseIndex}" title="Editar Fase">✏️</button>
@@ -923,8 +1012,15 @@ const renderParticipantAvatars = (participants) => {
             contentHTML += '<p>Nenhum script nesta fase ainda. Adicione um!</p>';
         }
 
-        contentHTML += `<button class="btn btn--secondary" style="margin-top: var(--space-16);" data-action="add-script" data-phase-index="${phaseIndex}">➕ Adicionar Novo Script</button>`;
-        contentContainer.innerHTML = contentHTML;
+        const addBtn = document.createElement('button');
+        addBtn.className = 'btn btn--secondary';
+        addBtn.style.marginTop = 'var(--space-16)';
+        addBtn.dataset.action = 'add-script';
+        addBtn.dataset.phaseIndex = String(phaseIndex);
+        addBtn.textContent = '➕ Adicionar Novo Script';
+        const wrap = document.createElement('div');
+        wrap.innerHTML = contentHTML;
+        contentContainer.replaceChildren(...Array.from(wrap.childNodes), addBtn);
     };
 
     const openPhaseModal = (phaseIndex = null) => {
@@ -1300,15 +1396,28 @@ const renderParticipantAvatars = (participants) => {
         }
 
         card.classList.remove('hidden');
-        container.innerHTML = insights.map(insight => `
-            <div class="insight-item insight-item--${insight.type}">
-                <div class="insight-item__icon">${insight.icon}</div>
-                <div class="insight-item__content">
-                    <p class="insight-item__message">${insight.message}</p>
-                    <p class="insight-item__action">${insight.action}</p>
-                </div>
-            </div>
-        `).join('');
+        const frag = document.createDocumentFragment();
+        insights.forEach(insight => {
+            const item = document.createElement('div');
+            item.className = `insight-item insight-item--${insight.type}`;
+            const iconDiv = document.createElement('div');
+            iconDiv.className = 'insight-item__icon';
+            iconDiv.textContent = insight.icon;
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'insight-item__content';
+            const msg = document.createElement('p');
+            msg.className = 'insight-item__message';
+            msg.textContent = insight.message;
+            const act = document.createElement('p');
+            act.className = 'insight-item__action';
+            act.textContent = insight.action;
+            contentDiv.appendChild(msg);
+            contentDiv.appendChild(act);
+            item.appendChild(iconDiv);
+            item.appendChild(contentDiv);
+            frag.appendChild(item);
+        });
+        container.replaceChildren(frag);
     };
 
 // --- FUNÇÕES DE RELATÓRIOS AVANÇADOS ---
@@ -1527,7 +1636,9 @@ const renderParticipantAvatars = (participants) => {
         const completedActivities = activities.filter(a => a.status === 'concluido' && a.real_horario_inicio && a.real_horario_fim);
 
         if (completedActivities.length === 0) {
-            container.innerHTML = '<p>Não há dados de atividades concluídas com registro de tempo para gerar este relatório. Use o sistema normalmente para coletar dados.</p>';
+            const p = document.createElement('p');
+            p.textContent = 'Não há dados de atividades concluídas com registro de tempo para gerar este relatório. Use o sistema normalmente para coletar dados.';
+            container.replaceChildren(p);
             return;
         }
         
@@ -1696,7 +1807,9 @@ const renderParticipantAvatars = (participants) => {
                 </div>
             </div>`;
 
-        container.innerHTML = tableHTML + patternsHTML;
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = tableHTML + patternsHTML;
+        container.replaceChildren(...Array.from(wrapper.childNodes));
     };
 
 
@@ -1830,7 +1943,11 @@ const renderParticipantAvatars = (participants) => {
             tableHTML += '</tr>';
         }
         tableHTML += '</tbody></table></div>';
-        container.innerHTML = `<canvas id="report-main-chart" style="display: none;"></canvas>${tableHTML}`;
+        const canvasHidden = Object.assign(document.createElement('canvas'), { id: 'report-main-chart' });
+        canvasHidden.style.display = 'none';
+        const wrap = document.createElement('div');
+        wrap.innerHTML = tableHTML;
+        container.replaceChildren(canvasHidden, ...Array.from(wrap.childNodes));
     };
 
     // --- FUNÇÃO CONTROLADORA PRINCIPAL ---
@@ -1864,11 +1981,19 @@ const renderParticipantAvatars = (participants) => {
                 getEl(`report-summary-${i}-label`).textContent = 'Aguardando dados...';
             });
             getEl('activity-details-card').classList.add('hidden');
-            getEl('efficiency-metrics-content').innerHTML = '<p>Salve o estado de um dia na página "Cronograma" para começar a coletar dados históricos.</p>';
+            const infoP = document.createElement('p');
+            infoP.textContent = 'Salve o estado de um dia na página "Cronograma" para começar a coletar dados históricos.';
+            getEl('efficiency-metrics-content').replaceChildren(infoP);
             getEl('insights-card').classList.add('hidden'); // Garante que o card de insights fique oculto
             if(charts.mainReport) charts.mainReport.destroy();
             const container = getEl('report-main-chart').parentElement;
-            container.innerHTML = `<canvas id="report-main-chart"></canvas><div class="empty-state"><p>Nenhum dado histórico encontrado para o período. Use o botão "Finalizar Dia" na página Cronograma para salvar seus dados.</p></div>`;
+            const canvas = Object.assign(document.createElement('canvas'), { id: 'report-main-chart' });
+            const empty = document.createElement('div');
+            empty.className = 'empty-state';
+            const p = document.createElement('p');
+            p.textContent = 'Nenhum dado histórico encontrado para o período. Use o botão "Finalizar Dia" na página Cronograma para salvar seus dados.';
+            empty.appendChild(p);
+            container.replaceChildren(canvas, empty);
             return;
         }
 
@@ -1897,7 +2022,8 @@ const renderParticipantAvatars = (participants) => {
         getEl('report-summary-5-value').textContent = eficienciaProspeccao;
         getEl('report-summary-5-label').textContent = 'Leads / Hora (Prospecção)';
         
-        getEl('report-main-chart').parentElement.innerHTML = `<canvas id="report-main-chart"></canvas>`;
+        const parent1 = getEl('report-main-chart').parentElement;
+        parent1.replaceChildren(Object.assign(document.createElement('canvas'), { id: 'report-main-chart' }));
         
         getEl('report-summary-5-label').textContent = 'Leads / Hora (Prospecção)';
         
@@ -1907,7 +2033,8 @@ const renderParticipantAvatars = (participants) => {
         renderInsights(insights);
         // --- FIM DA INTEGRAÇÃO DO SISTEMA DE INSIGHTS ---
         
-        getEl('report-main-chart').parentElement.innerHTML = `<canvas id="report-main-chart"></canvas>`;
+        const parent2 = getEl('report-main-chart').parentElement;
+        parent2.replaceChildren(Object.assign(document.createElement('canvas'), { id: 'report-main-chart' }));
 
         switch(activeReportType) {
             case 'summary':
@@ -1930,7 +2057,13 @@ const renderParticipantAvatars = (participants) => {
 
         if (!activities || activities.length === 0) {
             title.textContent = `Detalhamento de Atividades`;
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align: center;">Nenhuma atividade no período selecionado. Salve o dia em "Cronograma" para criar o histórico.</td></tr>`;
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.colSpan = 7;
+            td.style.textAlign = 'center';
+            td.textContent = 'Nenhuma atividade no período selecionado. Salve o dia em "Cronograma" para criar o histórico.';
+            tr.appendChild(td);
+            tbody.replaceChildren(tr);
             return;
         }
 
@@ -1962,22 +2095,30 @@ const renderParticipantAvatars = (participants) => {
         });
 
         if (filteredActivities.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align: center;">Nenhuma atividade encontrada para a categoria "${reportCategoryFilter}".</td></tr>`;
+            const tr2 = document.createElement('tr');
+            const td2 = document.createElement('td');
+            td2.colSpan = 7;
+            td2.style.textAlign = 'center';
+            td2.textContent = `Nenhuma atividade encontrada para a categoria "${reportCategoryFilter}".`;
+            tr2.appendChild(td2);
+            tbody.replaceChildren(tr2);
             return;
         }
         
         // 2. Renderiza a tabela usando a lista de atividades já filtrada e corrigida.
-        tbody.innerHTML = filteredActivities.map(a => `
-        <tr>
-            <td>${a.nome}</td>
-            <td>${a.categoria}</td>
-            <td>${a.horario_inicio} - ${a.horario_fim}</td>
-            <td><span class="activity-item__status status-${a.status}">${getStatusText(a.status)}</span></td>
-            <td>${a.prioridade || 'N/A'}</td>
-            <td>${a.leads_contatados || 0}/${a.meta_leads || 0}</td>
-            <td>${a.visitas_realizadas || 0}/${a.meta_visitas || 0}</td>
-        </tr>
-        `).join("");
+        const fragRows = document.createDocumentFragment();
+        filteredActivities.forEach(a => {
+            const tr = document.createElement('tr');
+            const tdNome = document.createElement('td'); tdNome.textContent = a.nome; tr.appendChild(tdNome);
+            const tdCat = document.createElement('td'); tdCat.textContent = a.categoria; tr.appendChild(tdCat);
+            const tdHora = document.createElement('td'); tdHora.textContent = `${a.horario_inicio} - ${a.horario_fim}`; tr.appendChild(tdHora);
+            const tdStatus = document.createElement('td'); const span = document.createElement('span'); span.className = `activity-item__status status-${a.status}`; span.textContent = getStatusText(a.status); tdStatus.appendChild(span); tr.appendChild(tdStatus);
+            const tdPrio = document.createElement('td'); tdPrio.textContent = a.prioridade || 'N/A'; tr.appendChild(tdPrio);
+            const tdLeads = document.createElement('td'); tdLeads.textContent = `${a.leads_contatados || 0}/${a.meta_leads || 0}`; tr.appendChild(tdLeads);
+            const tdVisitas = document.createElement('td'); tdVisitas.textContent = `${a.visitas_realizadas || 0}/${a.meta_visitas || 0}`; tr.appendChild(tdVisitas);
+            fragRows.appendChild(tr);
+        });
+        tbody.replaceChildren(fragRows);
     };
 
     const renderAcompanhamentoReport = () => {
@@ -2205,7 +2346,16 @@ const renderParticipantAvatars = (participants) => {
     
         getEl('sidebar').addEventListener('click', e => {
             const link = e.target.closest('.nav-link');
-            if (link) { e.preventDefault(); navigateTo(link.dataset.page); }
+            if (link) {
+                e.preventDefault();
+                navigateTo(link.dataset.page);
+                // Fecha a sidebar em telas pequenas após a navegação
+                if (window.matchMedia('(max-width: 768px)').matches) {
+                    const sidebar = getEl('sidebar');
+                    sidebar.classList.remove('open');
+                    console.log('Sidebar fechada após navegação em mobile');
+                }
+            }
         });
         
         getEl('activity-form').addEventListener('submit', e => { e.preventDefault(); saveActivity(); });
@@ -2218,6 +2368,26 @@ const renderParticipantAvatars = (participants) => {
         getEl('edit-mode-btn').addEventListener('click', () => toggleEditMode(true));
         getEl('view-mode-btn').addEventListener('click', () => toggleEditMode(false));
         getEl('sidebar-toggle').addEventListener('click', () => getEl('sidebar').classList.toggle('open'));
+        const mobileFab = getEl('mobile-menu-fab');
+        if (mobileFab) {
+            console.log('Mobile FAB encontrado:', mobileFab);
+            mobileFab.addEventListener('click', () => {
+                console.log('Mobile FAB clicado');
+                getEl('sidebar').classList.toggle('open');
+            });
+            
+            // DEBUG: For\u00e7a visibilidade para teste
+            setTimeout(() => {
+                const currentWidth = window.innerWidth;
+                console.log('Largura da tela:', currentWidth);
+                if (currentWidth <= 768) {
+                    mobileFab.classList.add('debug');
+                    console.log('FAB for\u00e7ado a aparecer em tela mobile');
+                }
+            }, 1000);
+        } else {
+            console.error('Mobile FAB n\u00e3o encontrado!');
+        }
         getEl('daily-log-date').addEventListener('change', e => renderDailyLogForm(e.target.value));
         getEl('period-select').addEventListener('change', initReports);
         getEl('template-selector').addEventListener('change', e => {
@@ -2372,6 +2542,74 @@ const initSwipeNavigation = () => {
 
     // Inicializa a navegação por swipe
     initSwipeNavigation();
+    
+    // Detector de mudança de tamanho para ajustar mobile
+    const handleResize = () => {
+        const isMobile = window.innerWidth <= 768;
+        const mobileFab = getEl('mobile-menu-fab');
+        const sidebar = getEl('sidebar');
+        
+        console.log('Resize detectado - Mobile:', isMobile, 'Largura:', window.innerWidth);
+        
+        if (isMobile) {
+            if (mobileFab) {
+                mobileFab.style.display = 'flex';
+                console.log('FAB exibido para mobile');
+            }
+        } else {
+            if (sidebar) {
+                sidebar.classList.remove('open');
+                console.log('Sidebar fechada em desktop');
+            }
+            if (mobileFab) {
+                mobileFab.style.display = 'none';
+                console.log('FAB ocultado em desktop');
+            }
+        }
+    };
+    
+    // Executa imediatamente e adiciona listener
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    
+    // Debug: Verifica periodicamente o estado do FAB
+    setInterval(() => {
+        const mobileFab = getEl('mobile-menu-fab');
+        const sidebar = getEl('sidebar');
+        const isMobile = window.innerWidth <= 768;
+        
+        if (mobileFab && isMobile) {
+            const computedStyle = window.getComputedStyle(mobileFab);
+            const isVisible = computedStyle.display !== 'none';
+            console.log('Status FAB:', {
+                exists: !!mobileFab,
+                isMobile,
+                windowWidth: window.innerWidth,
+                computedDisplay: computedStyle.display,
+                visible: isVisible,
+                sidebarOpen: sidebar?.classList.contains('open')
+            });
+        }
+    }, 5000); // Verifica a cada 5 segundos
+    
+    // Fecha sidebar ao clicar fora dela em mobile
+    document.addEventListener('click', (e) => {
+        const sidebar = getEl('sidebar');
+        const mobileFab = getEl('mobile-menu-fab');
+        const sidebarToggle = getEl('sidebar-toggle');
+        const isMobile = window.innerWidth <= 768;
+        
+        if (isMobile && sidebar && sidebar.classList.contains('open')) {
+            // Se clicou fora da sidebar, do FAB e do toggle button
+            if (!sidebar.contains(e.target) && 
+                e.target !== mobileFab && 
+                e.target !== sidebarToggle &&
+                !sidebarToggle?.contains(e.target)) {
+                sidebar.classList.remove('open');
+                console.log('Sidebar fechada por clique externo');
+            }
+        }
+    });
 
 // --- FIM: FUNCIONALIDADES PARA DISPOSITIVOS MÓVEIS ---
 

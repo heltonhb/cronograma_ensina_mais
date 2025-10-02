@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Cada usuário só acessa seu próprio documento em userData/{uid}
+    match /userData/{userId} {
+      allow read, update, delete: if isOwner(userId);
+      allow create: if isOwner(userId);
+
+      // Validações básicas de shape (ajuste conforme seu schema real)
+      allow write: if isOwner(userId)
+        && (request.resource.data.keys().hasOnly(['appData', 'updatedAt'])
+        || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['appData', 'updatedAt']))
+        && request.time > timestamp.date(2020, 1, 1);
+    }
+
+    // Bloqueia todo o resto por padrão
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+
+
