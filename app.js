@@ -1615,6 +1615,10 @@ const renderParticipantAvatars = (participants) => {
             renderAcompanhamentoReport();
         }
         updateTodaysLeadsMetric();
+
+        if (typeof MobileReports !== 'undefined') {
+            MobileReports.init();
+          }
     };
       
     const updateTodaysLeadsMetric = () => {
@@ -2051,161 +2055,207 @@ const renderParticipantAvatars = (participants) => {
         }
     };
       
-   const renderActivityDetailTable = (activities) => {
-        const tbody = getEl('activity-details-tbody');
-        const title = getEl('activity-details-title');
+// Função modificada para suporte mobile
+const renderActivityDetailTable = (activities) => {
+    const tbody = getEl('activity-details-tbody');
+    const title = getEl('activity-details-title');
+    
+    if (!activities || activities.length === 0) {
+      title.textContent = 'Detalhamento de Atividades';
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 7;
+      td.style.textAlign = 'center';
+      td.textContent = 'Nenhuma atividade no período selecionado.';
+      tr.appendChild(td);
+      tbody.replaceChildren(tr);
+      return;
+    }
+  
+    // Remover duplicatas por ID
+    const activityMap = new Map();
+    activities.forEach(activity => {
+      activityMap.set(activity.id, activity);
+    });
+    const latestActivities = Array.from(activityMap.values());
+    
+    const filteredActivities = latestActivities.filter(a => 
+      reportCategoryFilter === 'all' || a.categoria === reportCategoryFilter
+    );
+  
+    title.textContent = `Detalhamento de Atividades ${
+      reportCategoryFilter !== 'all' ? `(${reportCategoryFilter})` : ''
+    }`;
+  
+    // Aplicar ordenação
+    const { key, direction } = reportSortConfig;
+    filteredActivities.sort((a, b) => {
+      if (a[key] < b[key]) return direction === 'asc' ? -1 : 1;
+      if (a[key] > b[key]) return direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  
+    // Atualizar indicadores de ordenação
+    queryAll('th[data-action="sort-report-table"]').forEach(th => {
+      th.classList.remove('sorted-asc', 'sorted-desc');
+      if (th.dataset.sortBy === key) {
+        th.classList.add(direction === 'asc' ? 'sorted-asc' : 'sorted-desc');
+      }
+    });
+  
+    if (filteredActivities.length === 0) {
+      const tr2 = document.createElement('tr');
+      const td2 = document.createElement('td');
+      td2.colSpan = 7;
+      td2.style.textAlign = 'center';
+      td2.textContent = `Nenhuma atividade encontrada para a categoria "${reportCategoryFilter}".`;
+      tr2.appendChild(td2);
+      tbody.replaceChildren(tr2);
+      return;
+    }
+  
+    // Renderizar linhas da tabela
+    const fragRows = document.createDocumentFragment();
+    filteredActivities.forEach(a => {
+      const tr = document.createElement('tr');
+      
+      // Nome da atividade
+      const tdNome = document.createElement('td');
+      tdNome.textContent = a.nome;
+      tdNome.setAttribute('data-label', 'Atividade');
+      tr.appendChild(tdNome);
+      
+      // Categoria
+      const tdCat = document.createElement('td');
+      tdCat.textContent = a.categoria;
+      tdCat.setAttribute('data-label', 'Categoria');
+      tr.appendChild(tdCat);
+      
+      // Horário
+      const tdHora = document.createElement('td');
+      tdHora.textContent = `${a.horario_inicio} - ${a.horario_fim}`;
+      tdHora.setAttribute('data-label', 'Horário');
+      tr.appendChild(tdHora);
+      
+      // Status
+      const tdStatus = document.createElement('td');
+      tdStatus.setAttribute('data-label', 'Status');
+      const span = document.createElement('span');
+      span.className = `activity-item__status status-${a.status}`;
+      span.textContent = getStatusText(a.status);
+      tdStatus.appendChild(span);
+      tr.appendChild(tdStatus);
+      
+      // Prioridade
+      const tdPrio = document.createElement('td');
+      tdPrio.textContent = a.prioridade || 'N/A';
+      tdPrio.setAttribute('data-label', 'Prioridade');
+      tr.appendChild(tdPrio);
+      
+      // Leads
+      const tdLeads = document.createElement('td');
+      tdLeads.textContent = `${a.leads_contatados || 0}/${a.meta_leads || 0}`;
+      tdLeads.setAttribute('data-label', 'Leads');
+      tr.appendChild(tdLeads);
+      
+      // Visitas
+      const tdVisitas = document.createElement('td');
+      tdVisitas.textContent = `${a.visitas_realizadas || 0}/${a.meta_visitas || 0}`;
+      tdVisitas.setAttribute('data-label', 'Visitas');
+      tr.appendChild(tdVisitas);
+      
+      fragRows.appendChild(tr);
+    });
+    
+    tbody.replaceChildren(fragRows);
+  };
 
-        if (!activities || activities.length === 0) {
-            title.textContent = `Detalhamento de Atividades`;
-            const tr = document.createElement('tr');
-            const td = document.createElement('td');
-            td.colSpan = 7;
-            td.style.textAlign = 'center';
-            td.textContent = 'Nenhuma atividade no período selecionado. Salve o dia em "Cronograma" para criar o histórico.';
-            tr.appendChild(td);
-            tbody.replaceChildren(tr);
-            return;
-        }
+  const renderAcompanhamentoReport = () => {
+    const days = parseInt(getEl('period-select').value);
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - (days - 1));
+    startDate.setHours(0, 0, 0, 0);
 
-        // --- INÍCIO DA CORREÇÃO ---
-        // 1. Usa um Map para garantir que apenas a versão mais recente de cada atividade (pelo ID) seja mantida.
-        // Como as atividades são processadas em ordem cronológica, a última entrada para um ID sempre será a mais recente.
-        const activityMap = new Map();
-        activities.forEach(activity => {
-            activityMap.set(activity.id, activity);
-        });
-        const latestActivities = Array.from(activityMap.values());
-        // --- FIM DA CORREÇÃO ---
+    const dateKeys = Object.keys(appData.dailyLogs).filter(date => {
+        const logDate = new Date(date + 'T00:00:00');
+        return logDate >= startDate && logDate <= endDate;
+    }).sort();
 
-        const filteredActivities = latestActivities.filter(a => reportCategoryFilter === 'all' || a.categoria === reportCategoryFilter);
-        title.textContent = `Detalhamento de Atividades ${reportCategoryFilter !== 'all' ? `(${reportCategoryFilter})` : ''}`;
+    const reportData = dateKeys.map(date => ({ date, ...appData.dailyLogs[date] }));
 
-        const { key, direction } = reportSortConfig;
-        filteredActivities.sort((a, b) => {
-            if (a[key] < b[key]) return direction === 'asc' ? -1 : 1;
-            if (a[key] > b[key]) return direction === 'asc' ? 1 : -1;
-            return 0;
-        });
+    const totals = reportData.reduce((acc, log) => {
+        acc.ligacoes += log.ligacoes || 0;
+        acc.visitas += log.visitas || 0;
+        acc.matriculas += log.matriculas || 0;
+        acc.leads_novos += log.leads_novos || 0;
+        acc.agendamentos += log.agendamentos || 0;
+        acc.leads_negativados += log.leads_negativados || 0; // <-- ADICIONE ESTA LINHA
+        return acc;
+        }, { ligacoes: 0, visitas: 0, matriculas: 0, leads_novos: 0, agendamentos: 0, leads_negativados: 0 });
 
-        queryAll('th[data-action="sort-report-table"]').forEach(th => {
-            th.classList.remove('sorted-asc', 'sorted-desc');
-            if (th.dataset.sortBy === key) {
-                th.classList.add(direction === 'asc' ? 'sorted-asc' : 'sorted-desc');
-            }
-        });
+   // E substitua por este, que agora usa um contêiner e adiciona o novo card:
+const summaryContainer = query('.report-summary'); // Use query('.report-summary') para selecionar pela classe
 
-        if (filteredActivities.length === 0) {
-            const tr2 = document.createElement('tr');
-            const td2 = document.createElement('td');
-            td2.colSpan = 7;
-            td2.style.textAlign = 'center';
-            td2.textContent = `Nenhuma atividade encontrada para a categoria "${reportCategoryFilter}".`;
-            tr2.appendChild(td2);
-            tbody.replaceChildren(tr2);
-            return;
-        }
-        
-        // 2. Renderiza a tabela usando a lista de atividades já filtrada e corrigida.
-        const fragRows = document.createDocumentFragment();
-        filteredActivities.forEach(a => {
-            const tr = document.createElement('tr');
-            const tdNome = document.createElement('td'); tdNome.textContent = a.nome; tr.appendChild(tdNome);
-            const tdCat = document.createElement('td'); tdCat.textContent = a.categoria; tr.appendChild(tdCat);
-            const tdHora = document.createElement('td'); tdHora.textContent = `${a.horario_inicio} - ${a.horario_fim}`; tr.appendChild(tdHora);
-            const tdStatus = document.createElement('td'); const span = document.createElement('span'); span.className = `activity-item__status status-${a.status}`; span.textContent = getStatusText(a.status); tdStatus.appendChild(span); tr.appendChild(tdStatus);
-            const tdPrio = document.createElement('td'); tdPrio.textContent = a.prioridade || 'N/A'; tr.appendChild(tdPrio);
-            const tdLeads = document.createElement('td'); tdLeads.textContent = `${a.leads_contatados || 0}/${a.meta_leads || 0}`; tr.appendChild(tdLeads);
-            const tdVisitas = document.createElement('td'); tdVisitas.textContent = `${a.visitas_realizadas || 0}/${a.meta_visitas || 0}`; tr.appendChild(tdVisitas);
-            fragRows.appendChild(tr);
-        });
-        tbody.replaceChildren(fragRows);
-    };
-
-    const renderAcompanhamentoReport = () => {
-        const days = parseInt(getEl('period-select').value);
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(endDate.getDate() - (days - 1));
-        startDate.setHours(0, 0, 0, 0);
-
-        const dateKeys = Object.keys(appData.dailyLogs).filter(date => {
-            const logDate = new Date(date + 'T00:00:00');
-            return logDate >= startDate && logDate <= endDate;
-        }).sort();
-
-        const reportData = dateKeys.map(date => ({ date, ...appData.dailyLogs[date] }));
-
-        const totals = reportData.reduce((acc, log) => {
-            acc.ligacoes += log.ligacoes || 0;
-            acc.visitas += log.visitas || 0;
-            acc.matriculas += log.matriculas || 0;
-            acc.leads_novos += log.leads_novos || 0;
-            acc.agendamentos += log.agendamentos || 0;
-            acc.leads_negativados += log.leads_negativados || 0; // <-- ADICIONE ESTA LINHA
-            return acc;
-            }, { ligacoes: 0, visitas: 0, matriculas: 0, leads_novos: 0, agendamentos: 0, leads_negativados: 0 });
-
-       // E substitua por este, que agora usa um contêiner e adiciona o novo card:
- const summaryContainer = query('.report-summary'); // Use query('.report-summary') para selecionar pela classe
-
-    summaryContainer.className = 'report-summary report-summary--6-items'; // Classe para 6 itens
-    summaryContainer.innerHTML = `
+summaryContainer.className = 'report-summary report-summary--6-items'; // Classe para 6 itens
+summaryContainer.innerHTML = `
+    <div class="summary-card">
+        <h3 id="report-summary-1-value">${totals.leads_novos}</h3>
+        <p id="report-summary-1-label">Total de Leads Novos</p>
+    </div>
+    <div class="summary-card">
+        <h3 id="report-summary-2-value">${totals.ligacoes}</h3>
+        <p id="report-summary-2-label">Total de Ligações</p>
+    </div>
+    <div class="summary-card">
+        <h3 id="report-summary-3-value">${totals.visitas}</h3>
+        <p id="report-summary-3-label">Total de Visitas</p>
+    </div>
+    <div class="summary-card">
+        <h3 id="report-summary-4-value">${totals.matriculas}</h3>
+        <p id="report-summary-4-label">Total de Matrículas</p>
+    </div>
+    <div class="summary-card">
+        <h3 id="report-summary-6-value" style="color: var(--color-error);">${totals.leads_negativados}</h3>
+        <p id="report-summary-6-label">Total de Leads Negativados</p>
+    </div>
         <div class="summary-card">
-            <h3 id="report-summary-1-value">${totals.leads_novos}</h3>
-            <p id="report-summary-1-label">Total de Leads Novos</p>
-        </div>
-        <div class="summary-card">
-            <h3 id="report-summary-2-value">${totals.ligacoes}</h3>
-            <p id="report-summary-2-label">Total de Ligações</p>
-        </div>
-        <div class="summary-card">
-            <h3 id="report-summary-3-value">${totals.visitas}</h3>
-            <p id="report-summary-3-label">Total de Visitas</p>
-        </div>
-        <div class="summary-card">
-            <h3 id="report-summary-4-value">${totals.matriculas}</h3>
-            <p id="report-summary-4-label">Total de Matrículas</p>
-        </div>
-        <div class="summary-card">
-            <h3 id="report-summary-6-value" style="color: var(--color-error);">${totals.leads_negativados}</h3>
-            <p id="report-summary-6-label">Total de Leads Negativados</p>
-        </div>
-            <div class="summary-card">
-            <h3 id="report-summary-5-value">0</h3>
-            <p id="report-summary-5-label">Leads Novos (Hoje)</p>
-        </div>
+        <h3 id="report-summary-5-value">0</h3>
+        <p id="report-summary-5-label">Leads Novos (Hoje)</p>
+    </div>
+`;
+
+    const conversionGrid = getEl('conversion-rates-grid');
+    conversionGrid.innerHTML = `
+        <div class="summary-card"><h3>${calculateConversionRate(totals.ligacoes, totals.leads_novos)}%</h3><p>Leads ➔ Ligações</p></div>
+        <div class="summary-card"><h3>${calculateConversionRate(totals.agendamentos, totals.ligacoes)}%</h3><p>Ligações ➔ Agendamentos</p></div>
+        <div class="summary-card"><h3>${calculateConversionRate(totals.visitas, totals.agendamentos)}%</h3><p>Agendamentos ➔ Visitas</p></div>
+        <div class="summary-card"><h3>${calculateConversionRate(totals.matriculas, totals.visitas)}%</h3><p>Visitas ➔ Matrículas</p></div>
     `;
 
-        const conversionGrid = getEl('conversion-rates-grid');
-        conversionGrid.innerHTML = `
-            <div class="summary-card"><h3>${calculateConversionRate(totals.ligacoes, totals.leads_novos)}%</h3><p>Leads ➔ Ligações</p></div>
-            <div class="summary-card"><h3>${calculateConversionRate(totals.agendamentos, totals.ligacoes)}%</h3><p>Ligações ➔ Agendamentos</p></div>
-            <div class="summary-card"><h3>${calculateConversionRate(totals.visitas, totals.agendamentos)}%</h3><p>Agendamentos ➔ Visitas</p></div>
-            <div class="summary-card"><h3>${calculateConversionRate(totals.matriculas, totals.visitas)}%</h3><p>Visitas ➔ Matrículas</p></div>
-        `;
-
-        getEl('report-chart-title').textContent = `Atividades e Leads nos Últimos ${days} Dias`;
-        
-        const chartData = {
-            labels: reportData.map(d => new Date(d.date + 'T00:00:00').toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})),
-            datasets: [
-                { label: 'Leads Novos', data: reportData.map(d => d.leads_novos), borderColor: '#ea4335', backgroundColor: '#ea4335', type: 'line', fill: false, tension: 0.4, yAxisID: 'y', },
-                { label: 'Leads Negativados', data: reportData.map(d => d.leads_negativados), borderColor: '#808080', backgroundColor: '#808080', type: 'line', fill: false, tension: 0.4, yAxisID: 'y', borderDash: [5, 5] },
-                { label: 'Ligações', data: reportData.map(d => d.ligacoes), borderColor: '#4285f4', backgroundColor: '#4285f4', type: 'line', fill: false, tension: 0.4, yAxisID: 'y', },
-                { label: 'Agendamentos', data: reportData.map(d => d.agendamentos), borderColor: '#7209b7', backgroundColor: '#7209b7', type: 'line', fill: false, tension: 0.4, yAxisID: 'y', },
-                { label: 'Visitas', data: reportData.map(d => d.visitas), borderColor: '#34a853', backgroundColor: '#34a853', type: 'line', fill: false, tension: 0.4, yAxisID: 'y', },
-                { label: 'Matrículas', data: reportData.map(d => d.matriculas), borderColor: '#fbbc04', backgroundColor: '#fbbc04', type: 'line', fill: false, tension: 0.4, yAxisID: 'y', }
-            ]
-        };
-
-        const chartOptions = { 
-            responsive: true, maintainAspectRatio: false, 
-            scales: { y: { beginAtZero: true, title: { display: true, text: 'Quantidade' } } },
-            plugins: { tooltip: { mode: 'index', intersect: false } }
-        };
-        
-        renderMainReportChart('line', chartData, chartOptions);
+    getEl('report-chart-title').textContent = `Atividades e Leads nos Últimos ${days} Dias`;
+    
+    const chartData = {
+        labels: reportData.map(d => new Date(d.date + 'T00:00:00').toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})),
+        datasets: [
+            { label: 'Leads Novos', data: reportData.map(d => d.leads_novos), borderColor: '#ea4335', backgroundColor: '#ea4335', type: 'line', fill: false, tension: 0.4, yAxisID: 'y', },
+            { label: 'Leads Negativados', data: reportData.map(d => d.leads_negativados), borderColor: '#808080', backgroundColor: '#808080', type: 'line', fill: false, tension: 0.4, yAxisID: 'y', borderDash: [5, 5] },
+            { label: 'Ligações', data: reportData.map(d => d.ligacoes), borderColor: '#4285f4', backgroundColor: '#4285f4', type: 'line', fill: false, tension: 0.4, yAxisID: 'y', },
+            { label: 'Agendamentos', data: reportData.map(d => d.agendamentos), borderColor: '#7209b7', backgroundColor: '#7209b7', type: 'line', fill: false, tension: 0.4, yAxisID: 'y', },
+            { label: 'Visitas', data: reportData.map(d => d.visitas), borderColor: '#34a853', backgroundColor: '#34a853', type: 'line', fill: false, tension: 0.4, yAxisID: 'y', },
+            { label: 'Matrículas', data: reportData.map(d => d.matriculas), borderColor: '#fbbc04', backgroundColor: '#fbbc04', type: 'line', fill: false, tension: 0.4, yAxisID: 'y', }
+        ]
     };
+
+    const chartOptions = { 
+        responsive: true, maintainAspectRatio: false, 
+        scales: { y: { beginAtZero: true, title: { display: true, text: 'Quantidade' } } },
+        plugins: { tooltip: { mode: 'index', intersect: false } }
+    };
+    
+    renderMainReportChart('line', chartData, chartOptions);
+};
+
 
     const renderMainReportChart = (type, data, options) => {
         const ctx = getEl('report-main-chart')?.getContext('2d');
