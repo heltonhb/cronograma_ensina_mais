@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Cronograma - Ensina Mais Turma da Mônica</title>
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4285f4">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; font-src 'self' https:; script-src 'self' https://cdn.jsdelivr.net https://www.gstatic.com; connect-src 'self' https://firestore.googleapis.com https://www.googleapis.com https://securetoken.googleapis.com https://www.gstatic.com https://identitytoolkit.googleapis.com https://cdn.jsdelivr.net;">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/pages.css">
+
+
+    <!-- Chart.js removed for manual lazy loading -->
+</head>
+
+<body>
+
+    <!-- Modals are now injected dynamically via js/components/Modals.js -->
+
+    <div id="toast-container" class="toast-container"></div>
+
+    <div id="sync-badge"
+        style="position: fixed; top: 10px; right: 10px; background: #22c55e; color: white; padding: 5px 10px; border-radius: 20px; font-size: 0.7rem; opacity: 0; transition: opacity 0.5s; pointer-events: none; z-index: 9999; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+        🔄 Sincronizado
+    </div>
+
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar__header">
+            <div class="sidebar__logo">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 19.5C4 18.837 4.26339 18.2011 4.73223 17.7322C5.20107 17.2634 5.83696 17 6.5 17H20"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M4 12.5C4 11.837 4.26339 11.2011 4.73223 10.7322C5.20107 10.2634 5.83696 10 6.5 10H20"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M4 5.5C4 4.83696 4.26339 4.20107 4.73223 3.73223C5.20107 3.26339 5.83696 3 6.5 3H20"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <h2>Ensina Mais</h2>
+            </div>
+            <button class="sidebar__toggle" id="sidebar-toggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+        <ul class="sidebar__nav">
+            <li><a href="#dashboard" class="nav-link active" data-page="dashboard">📊 Dashboard</a></li>
+            <li><a href="#cronograma" class="nav-link" data-page="cronograma">⏰ Cronograma</a></li>
+            <li><a href="#templates" class="nav-link" data-page="templates">📋 Templates</a></li>
+            <li><a href="#leads" class="nav-link" data-page="leads">📓 Acompanhamento</a></li>
+            <li><a href="#scripts" class="nav-link" data-page="scripts">📝 Scripts</a></li>
+            <li><a href="#relatorios" class="nav-link" data-page="relatorios">📈 Relatórios</a></li>
+            <li><a href="#configuracoes" class="nav-link" data-page="configuracoes">⚙️ Configurações</a></li>
+            <li><a href="#" id="logout-btn" class="nav-link">🚪 Sair</a></li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+
+        <section id="dashboard" class="page active">
+            <div class="page-header">
+                <h1>Dashboard</h1>
+
+                <div class="current-time" id="current-time"></div>
+            </div>
+
+            <div id="gamification-widget"></div>
+
+            <p id="dashboard-date-label"
+                style="font-size: 0.9em; font-weight: 600; color: #64748b; margin: 20px 0 15px 0; display:flex; align-items:center; gap:8px;">
+                <span style="display:inline-block; width:8px; height:8px; background:#ccc; border-radius:50%"></span>
+                Carregando...
+            </p>
+
+            <div class="dashboard-metrics-grid">
+
+                <div class="stat-card purple">
+                    <div>
+                        <span class="stat-label">Tarefas Concluídas</span>
+                        <div id="dash-atividades" class="stat-value skeleton">0/0</div>
+                    </div>
+                    <div class="stat-icon">✅</div>
+                    <div
+                        style="margin-top:auto; height:4px; background:rgba(0,0,0,0.05); border-radius:2px; width: 100%; position: relative;">
+                        <div id="dash-progress-fill"
+                            style="height:100%; width:0%; background:currentColor; opacity:0.5; transition: width 1s;">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-card cyan">
+                    <div>
+                        <span class="stat-label">Leads Novos</span>
+                        <div id="dash-leads-novos" class="stat-value skeleton">0</div>
+                    </div>
+                    <div class="stat-icon">✨</div>
+                </div>
+
+                <div class="stat-card pink">
+                    <div>
+                        <span class="stat-label">Leads Contatados</span>
+                        <div id="dash-leads" class="stat-value skeleton">0</div>
+                    </div>
+                    <div class="stat-icon">💬</div>
+                </div>
+
+                <div class="stat-card yellow">
+                    <div>
+                        <span class="stat-label">Agendamentos</span>
+                        <div id="total-agendamentos" class="stat-value skeleton">0</div>
+                    </div>
+                    <div class="stat-icon">📅</div>
+                </div>
+
+                <div class="stat-card orange">
+                    <div>
+                        <span class="stat-label">Visitas Feitas</span>
+                        <div id="dash-visitas" class="stat-value skeleton">0</div>
+                    </div>
+                    <div class="stat-icon">🏫</div>
+                </div>
+
+                <div class="stat-card green">
+                    <div>
+                        <span class="stat-label">Matrículas</span>
+                        <div id="dash-matriculas" class="stat-value skeleton">0</div>
+                    </div>
+                    <div class="stat-icon">🏆</div>
+                </div>
+
+            </div>
+
+
+            <div class="card">
+                <div class="card__header">
+                    <h3>Atividades do dia anterior</h3>
+                </div>
+                <div id="today-activities-list"></div>
+            </div>
+        </section>
+
+        <section id="cronograma" class="page">
+            <div class="page-header">
+                <h1>Cronograma de Atividades</h1>
+                <div class="schedule-controls">
+                    <select id="template-selector" class="form-control">
+                        <option value="">Aplicar Template</option>
+                    </select>
+                    <button class="btn btn--secondary" id="compact-mode-btn">📄 Modo Compacto</button>
+                    <div class="schedule-modes">
+                        <button class="btn btn--secondary" id="edit-mode-btn">✏️ Edição</button>
+                        <button class="btn btn--secondary" id="kanban-mode-btn">📊 Kanban</button>
+                        <button class="btn btn--secondary hidden" id="view-mode-btn">👁️ Visualizar</button>
+                    </div>
+                    <button class="btn btn--secondary" data-action="finish-day">🏁 Finalizar Dia</button>
+                    <button class="btn btn--primary" data-action="add-activity">➕ Nova Atividade</button>
+                </div>
+            </div>
+
+            <div id="active-template-display" class="active-template-display hidden"></div>
+
+            <div class="card">
+                <div class="card__header" id="schedule-filter-controls">
+                    <div class="filter-buttons">
+                        <button class="btn btn--sm" data-action="filter-status" data-status="all">Todos</button>
+                        <button class="btn btn--sm" data-action="filter-status" data-status="nao_iniciado">Não
+                            Iniciado</button>
+                        <button class="btn btn--sm" data-action="filter-status" data-status="em_andamento">Em
+                            Andamento</button>
+                        <button class="btn btn--sm" data-action="filter-status"
+                            data-status="concluido">Concluído</button>
+                    </div>
+                </div>
+                <div class="card__body">
+                    <div class="schedule-timeline" id="schedule-timeline">
+                        <div class="timeline-header">
+                            <div class="timeline-hours">
+                                <div class="hour-marker">08:00</div>
+                                <div class="hour-marker">09:00</div>
+                                <div class="hour-marker">10:00</div>
+                                <div class="hour-marker">11:00</div>
+                                <div class="hour-marker">12:00</div>
+                                <div class="hour-marker">13:00</div>
+                                <div class="hour-marker">14:00</div>
+                                <div class="hour-marker">15:00</div>
+                                <div class="hour-marker">16:00</div>
+                                <div class="hour-marker">17:00</div>
+                                <div class="hour-marker">18:00</div>
+                            </div>
+                        </div>
+                        <div class="timeline-content" id="timeline-activities"></div>
+                    </div>
+                    <div class="schedule-grid" id="schedule-grid"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="templates" class="page">
+            <div class="page-header">
+                <h1>Gerenciamento de Templates</h1>
+                <button class="btn btn--primary" data-action="save-current-template">💾 Salvar Cronograma Atual</button>
+            </div>
+            <div class="templates-section">
+                <h2>Templates Padrão</h2>
+                <div class="templates-grid" id="templates-grid"></div>
+            </div>
+            <div class="templates-section">
+                <h2>Meus Templates</h2>
+                <div class="custom-templates-grid" id="custom-templates-grid"></div>
+            </div>
+        </section>
+
+        <section id="leads" class="page">
+            <div class="page-header">
+                <h1>Acompanhamento Diário de Atendimento</h1>
+                <div class="form-group">
+                    <label for="daily-log-date" class="form-label sr-only">Data</label>
+                    <input type="date" id="daily-log-date" class="form-control">
+                </div>
+            </div>
+            <div class="card">
+                <form id="daily-log-form" class="card__body">
+                    <div class="daily-log-grid">
+                        <div class="form-group">
+                            <label for="log-leads_novos" class="form-label">Leads Novos Cadastrados</label>
+                            <input type="number" id="log-leads_novos" class="form-control" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="log-ligacoes" class="form-label">Ligações</label>
+                            <input type="number" id="log-ligacoes" class="form-control" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="log-agendamentos" class="form-label">Agendamentos</label>
+                            <input type="number" id="log-agendamentos" class="form-control" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="log-visitas" class="form-label">Visitas</label>
+                            <input type="number" id="log-visitas" class="form-control" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="log-matriculas" class="form-label">Matrículas</label>
+                            <input type="number" id="log-matriculas" class="form-control" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="log-leads_negativados" class="form-label">Leads Negativados</label>
+                            <input type="number" id="log-leads_negativados" class="form-control" min="0" value="0">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="log-observacoes" class="form-label">Observações Importantes</label>
+                        <textarea id="log-observacoes" rows="4" class="form-control"></textarea>
+                    </div>
+                    <div class="daily-log-actions">
+                        <button type="submit" class="btn btn--primary">💾 Salvar Acompanhamento do Dia</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <section id="scripts" class="page">
+            <div class="page-header">
+                <h1>Scripts de Venda</h1>
+                <button class="btn btn--primary" data-action="add-phase">➕ Nova Fase</button>
+            </div>
+            <div class="scripts-layout">
+                <nav class="scripts-nav card" id="scripts-nav"></nav>
+                <div class="scripts-content" id="scripts-content"></div>
+            </div>
+        </section>
+
+        <section id="relatorios" class="page">
+            <div class="page-header">
+                <h1>Relatórios de Performance</h1>
+                <div class="report-controls">
+
+
+                    <div class="report-toggles">
+                        <button class="btn-toggle active" id="btn-source-cronograma" data-action="set-report-source"
+                            data-source="cronograma">Cronograma</button>
+                        <button class="btn-toggle" id="btn-source-acompanhamento" data-action="set-report-source"
+                            data-source="acompanhamento">Acompanhamento</button>
+                    </div>
+                    <select id="period-select" class="form-control">
+                        <option value="7">Últimos 7 dias</option>
+                        <option value="15">Últimos 15 dias</option>
+                        <option value="30">Últimos 30 dias</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card__header">
+                    <h3>Relatórios Exportáveis</h3>
+                </div>
+                <div class="card__body" style="display: flex; gap: 16px; flex-wrap: wrap;">
+                    <button class="btn btn--secondary" data-action="export-weekly-report">📄 Relatório Semanal</button>
+                    <button class="btn btn--secondary" data-action="export-roi-report">💰 Análise ROI</button>
+                </div>
+            </div>
+
+            <div class="report-summary report-summary--5-items">
+                <div class="summary-card">
+                    <h3 id="report-summary-1-value">0</h3>
+                    <p>Total Atividades</p>
+                </div>
+                <div class="summary-card">
+                    <h3 id="report-summary-2-value">0%</h3>
+                    <p>Conclusão</p>
+                </div>
+                <div class="summary-card">
+                    <h3 id="report-summary-3-value">0h</h3>
+                    <p>Tempo</p>
+                </div>
+                <div class="summary-card">
+                    <h3 id="report-summary-4-value">0</h3>
+                    <p>Leads Contatados</p>
+                </div>
+                <div class="summary-card">
+                    <h3 id="report-summary-5-value">0</h3>
+                    <p>Eficiência</p>
+                </div>
+            </div>
+
+            <div class="card hidden" id="insights-card">
+                <div class="card__header">
+                    <h3>💡 Insights</h3>
+                </div>
+                <div class="card__body" id="insights-container"></div>
+            </div>
+
+            <div class="card hidden" id="conversion-rates-card">
+                <div class="card__header">
+                    <h3>Funil de Vendas</h3>
+                </div>
+                <div class="card__body">
+                    <div class="report-summary" id="conversion-rates-grid"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card__header">
+                    <h3 id="report-chart-title">Distribuição</h3>
+                </div>
+                <div class="card__body">
+                    <div class="chart-container" style="height: 350px; position: relative;">
+                        <canvas id="report-main-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" id="activity-details-card">
+                <div class="card__header">
+                    <h3 id="activity-details-title">Detalhamento</h3>
+                </div>
+                <div class="card__body">
+                    <div class="table-container">
+                        <table class="activity-detail-table">
+                            <thead>
+                                <tr>
+                                    <th data-action="sort-report-table" data-sort-by="nome">Atividade</th>
+                                    <th data-action="sort-report-table" data-sort-by="categoria">Categoria</th>
+                                    <th data-action="sort-report-table" data-sort-by="horario_inicio">Horário</th>
+                                    <th data-action="sort-report-table" data-sort-by="status">Status</th>
+                                    <th data-action="sort-report-table" data-sort-by="prioridade">Prioridade</th>
+                                </tr>
+                            </thead>
+                            <tbody id="activity-details-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+
+
+            <div class="card card-full-width">
+                <div class="card__header">
+                    <h3>💎 Performance Comercial (Tendência Anual)</h3>
+                </div>
+
+                <div class="premium-stats-row">
+                    <div class="p-stat-item">
+                        <span class="p-label">1. Leads (Total)</span>
+                        <span class="p-value" id="kpi-total-leads">0</span>
+
+                        <div class="p-stats-container">
+                            <div class="stat-pill">
+                                <span class="pill-label">Média/Mês</span>
+                                <span class="pill-value" id="stats-leads-avg">0</span>
+                            </div>
+                            <div class="stat-divider"></div>
+                            <div class="stat-pill">
+                                <span class="pill-label">Desvio (σ)</span>
+                                <span class="pill-value" id="stats-leads-sd">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-stat-item">
+                        <span class="p-label">2. Ligações (Total)</span>
+                        <span class="p-value" id="kpi-total-calls">0</span>
+
+                        <div class="p-stats-container">
+                            <div class="stat-pill">
+                                <span class="pill-label">Média/Mês</span>
+                                <span class="pill-value" id="stats-calls-avg">0</span>
+                            </div>
+                            <div class="stat-divider"></div>
+                            <div class="stat-pill">
+                                <span class="pill-label">Desvio (σ)</span>
+                                <span class="pill-value" id="stats-calls-sd">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-stat-item">
+                        <span class="p-label">3. Visitas (Total)</span>
+                        <span class="p-value" id="kpi-total-visits">0</span>
+
+                        <div class="p-stats-container">
+                            <div class="stat-pill">
+                                <span class="pill-label">Média/Mês</span>
+                                <span class="pill-value" id="stats-visits-avg">0</span>
+                            </div>
+                            <div class="stat-divider"></div>
+                            <div class="stat-pill">
+                                <span class="pill-label">Desvio (σ)</span>
+                                <span class="pill-value" id="stats-visits-sd">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-stat-item highlight">
+                        <span class="p-label">4. Matrículas (Total)</span>
+                        <span class="p-value" id="kpi-total-sales">0</span>
+
+                        <div class="p-stats-container">
+                            <div class="stat-pill">
+                                <span class="pill-label">Média/Mês</span>
+                                <span class="pill-value" id="stats-sales-avg">0</span>
+                            </div>
+                            <div class="stat-divider"></div>
+                            <div class="stat-pill">
+                                <span class="pill-label">Desvio (σ)</span>
+                                <span class="pill-value" id="stats-sales-sd">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-stat-item conversion-box">
+                        <span class="p-label">Conversão Global</span>
+                        <span class="p-value" id="kpi-total-conversion">0%</span>
+
+                        <div class="p-stats-container">
+                            <div class="stat-pill">
+                                <span class="pill-label">Méd. Mensal</span>
+                                <span class="pill-value" id="stats-conversion-avg">0%</span>
+                            </div>
+                            <div class="stat-divider"></div>
+                            <div class="stat-pill">
+                                <span class="pill-label">Estabilidade</span>
+                                <span class="pill-value">±<span id="stats-conversion-sd">0%</span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="height: 350px; position: relative; margin-top: 20px;">
+                    <canvas id="premium-evolution-chart"></canvas>
+                </div>
+
+                <div style="margin-top: 30px; text-align: center;margin-bottom: 20px;">
+                    <button class="btn btn--secondary btn--sm" data-action="update-charts">🔄 Atualizar Dados</button>
+                </div>
+            </div>
+            </div>
+
+        </section>
+
+        <section id="configuracoes" class="page">
+            <div class="page-header">
+                <h1>Configurações</h1>
+            </div>
+            <div class="card">
+                <div class="card__header">
+                    <h3>Backup e Restauração</h3>
+                </div>
+                <div class="card__body">
+                    <p>Exporte seus dados para segurança.</p>
+                    <div class="daily-log-actions" style="justify-content: flex-start; gap: var(--space-12);">
+                        <button class="btn btn--primary" data-action="export-data">📤 Exportar Dados</button>
+                        <button class="btn btn--secondary" data-action="trigger-import">📥 Importar Dados</button>
+                        <input type="file" id="import-file-input" accept=".json" style="display: none;">
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card__header">
+                    <h3>Zona de Perigo</h3>
+                </div>
+                <div class="card__body">
+                    <button class="btn btn--outline" data-action="reset-data">🗑️ Limpar Todos os Dados</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Other modals removed (injected by js) -->
+
+    <button id="mobile-menu-fab" class="fab" aria-label="Abrir menu">☰</button>
+
+    <script type="module" src="/firebase-config.js"></script>
+    <script type="module" src="/app.js"></script>
+</body>
+
+</html>

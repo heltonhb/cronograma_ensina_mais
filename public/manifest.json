@@ -1,0 +1,22 @@
+{
+  "name": "Ensina Mais Gestão",
+  "short_name": "EnsinaMais",
+  "start_url": "/?source=pwa",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4285f4",
+  "description": "Sistema de Gestão de Vendas e Cronograma",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icons/appstore.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icons/playstore.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}

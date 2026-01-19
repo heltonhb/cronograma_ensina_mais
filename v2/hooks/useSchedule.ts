@@ -1,0 +1,48 @@
+import { useActivities } from './useActivities';
+import { useDailyLog } from './useDailyLog';
+import { useMetrics } from './useMetrics';
+
+export function useSchedule() {
+    // 1. Manage Activities (Firestore Subscription)
+    const {
+        activities: rawActivities,
+        loading: activitiesLoading,
+        updateActivityStatus,
+        deleteActivity
+    } = useActivities();
+
+    // 2. Manage Daily Logs & History
+    const {
+        todayLog,
+        yesterdayLog,
+        yesterdayActivities: yesterdaySnapshot,
+        historyData,
+        loading: logsLoading,
+        currentMonthStats
+    } = useDailyLog();
+
+    // 3. Calculate Metrics & Transformations (Pure Logic)
+    const {
+        metrics,
+        todayActivities,
+        yesterdayActivities
+    } = useMetrics({
+        activities: rawActivities,
+        todayLog,
+        yesterdayLog,
+        yesterdayActivitiesSnapshot: yesterdaySnapshot
+    });
+
+    const loading = activitiesLoading || logsLoading;
+
+    return {
+        activities: todayActivities, // The transformed "Today" list
+        yesterdayActivities,         // The combined Yesterday list
+        metrics,
+        loading,
+        historyData,
+        updateActivityStatus,
+        deleteActivity,
+        currentMonthStats
+    };
+}

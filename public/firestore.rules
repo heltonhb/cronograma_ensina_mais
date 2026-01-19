@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Regra para subcoleções (Ex: userData/{uid}/activities/{id})
+    match /userData/{userId}/{document=**} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // Regra para documento principal de dados do usuário
+    match /userData/{userId} {
+      allow read, create: if isOwner(userId); // Permitir criação sem validação complexa inicial
+      
+      allow update: if isOwner(userId) 
+          // 1. Opcional: Validar se o XP não aumentou absurdamente (> 2000 por vez)
+          && (
+             !request.resource.data.gamification.xp 
+             || !resource.data.gamification.xp
+             || request.resource.data.gamification.xp <= resource.data.gamification.xp + 2000
+          );
+    }
+
+    // Bloqueia todo o resto por padrão
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@media print {
+  /* 
+     STRATEGY: Visibility Hidden + Fixed Position 
+     This allows keeping the DOM structure but showing only the detailed content.
+  */
+
+  body {
+    visibility: hidden;
+  }
+
+  /* Force the report content to be visible and overlay everything */
+  #reports-content {
+    visibility: visible !important;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: white !important;
+    z-index: 9999;
+  }
+
+  /* Force immediate children to be visible */
+  #reports-content * {
+    visibility: visible !important;
+  }
+
+  /* Hide Buttons explicitly */
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Reset Recharts containers to fit print width */
+  .recharts-wrapper {
+    width: 100% !important;
+    height: auto !important;
+  }
+}

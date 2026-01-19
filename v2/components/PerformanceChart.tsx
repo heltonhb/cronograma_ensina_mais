@@ -1,0 +1,146 @@
+'use client';
+
+import React from 'react';
+import {
+    AreaChart,
+    Area,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    Legend,
+    ResponsiveContainer
+} from 'recharts';
+
+interface PerformanceChartProps {
+    data: {
+        date: string;
+        leads_novos: number;
+        ligacoes: number;
+        agendamentos: number;
+        visitas: number;
+        matriculas: number;
+    }[];
+}
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-white dark:bg-zinc-800 p-4 rounded-lg shadow-lg border border-gray-100 dark:border-zinc-700">
+                <p className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">{label}</p>
+                <div className="space-y-1">
+                    {payload.map((entry: any, index: number) => (
+                        <p key={index} className="text-xs" style={{ color: entry.color }}>
+                            {entry.name}: <span className="font-semibold">{entry.value}</span>
+                        </p>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+    return null;
+};
+
+export default function PerformanceChart({ data }: PerformanceChartProps) {
+    if (!data || data.length === 0) {
+        return <div className="flex items-center justify-center h-full text-gray-400 text-sm">Sem dados suficientes para o gráfico.</div>;
+    }
+
+    return (
+        <div className="w-full h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                    data={data}
+                    margin={{
+                        top: 10,
+                        right: 10,
+                        left: -20,
+                        bottom: 30,
+                    }}
+                >
+                    <defs>
+                        <linearGradient id="colorLeadsNovos" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="colorAgendamentos" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#06B6D4" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="#06B6D4" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="colorVisitas" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="#82ca9d" stopOpacity={0} />
+                        </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                    <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 12, fill: '#9CA3AF' }}
+                        tickLine={false}
+                        axisLine={false}
+                        dy={10}
+                    />
+                    <YAxis
+                        tick={{ fontSize: 12, fill: '#9CA3AF' }}
+                        tickLine={false}
+                        axisLine={false}
+                    />
+
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend
+                        verticalAlign="bottom"
+                        height={36}
+                        iconType="circle"
+                        wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }}
+                        formatter={(value) => <span className="text-gray-700 dark:text-gray-300">{value}</span>}
+                    />
+                    <Area
+                        type="monotone"
+                        dataKey="leads_novos"
+                        stroke="#3B82F6"
+                        fillOpacity={0.4}
+                        fill="url(#colorLeadsNovos)"
+                        name="Leads Novos"
+                    />
+                    <Area
+                        type="monotone"
+                        dataKey="ligacoes"
+                        stroke="#8884d8"
+                        fillOpacity={0.4}
+                        fill="url(#colorLeads)"
+                        name="Leads Contatados"
+                    />
+                    <Area
+                        type="monotone"
+                        dataKey="agendamentos"
+                        stroke="#06B6D4"
+                        fillOpacity={0.4}
+                        fill="url(#colorAgendamentos)"
+                        name="Agendamentos"
+                    />
+                    <Area
+                        type="monotone"
+                        dataKey="visitas"
+                        stroke="#82ca9d"
+                        fillOpacity={0.4}
+                        fill="url(#colorVisitas)"
+                        name="Visitas"
+                    />
+                    <Area
+                        type="monotone"
+                        dataKey="matriculas"
+                        stroke="#F59E0B"
+                        fill="none"
+                        fillOpacity={0}
+                        strokeWidth={3}
+                        name="Matrículas"
+                    />
+                </AreaChart>
+            </ResponsiveContainer>
+        </div>
+    );
+}
