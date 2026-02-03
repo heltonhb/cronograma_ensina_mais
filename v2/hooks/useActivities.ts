@@ -60,7 +60,23 @@ export function useActivities() {
         } catch (error) {
             console.error("Error deleting activity:", error);
         }
+
     };
 
-    return { activities, loading, updateActivityStatus, deleteActivity };
+    const addActivity = async (activity: Activity) => {
+        if (!user) return;
+        try {
+            // Ensure ID is string
+            const id = String(activity.id || Date.now());
+            await setDoc(doc(db, 'userData', user.uid, 'activities', id), {
+                ...activity,
+                id,
+                updatedAt: new Date().toISOString()
+            }, { merge: true });
+        } catch (error) {
+            console.error("Error adding activity:", error);
+        }
+    };
+
+    return { activities, loading, updateActivityStatus, deleteActivity, addActivity };
 }

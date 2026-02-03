@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Activity } from '../types/activity';
 import { useAuth } from '../contexts/AuthContext';
 import { openWhatsAppChat } from '../services/whatsappService';
-import { calculateLeadScore } from '../services/aiService';
+import { calculateLeadScore, predictActivityDefaults } from '../services/aiService';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
@@ -23,17 +23,27 @@ export default function ActivityModal({ isOpen, onClose, activity }: ActivityMod
         if (activity) {
             setFormData({ ...activity });
         } else {
-            // Defaults for new activity
+            // Smart Defaults based on time of day
+            const currentHour = new Date().getHours();
+            const defaults = predictActivityDefaults(currentHour);
+
+            // Calculate default time string (current hour + :00)
+            const startStr = `${String(currentHour).padStart(2, '0')}:00`;
+            const endHour = currentHour + 1;
+            const endStr = `${String(endHour).padStart(2, '0')}:00`;
+
             setFormData({
-                nome: '',
-                horario_inicio: '09:00',
-                horario_fim: '10:00',
+                nome: defaults.nome,
+                horario_inicio: startStr,
+                horario_fim: endStr,
                 status: 'nao_iniciado',
-                cor: '#4285f4', // Default blue
+                cor: '#4285f4',
                 icone: '📋',
-                categoria: 'Geral',
-                prioridade: 'Média',
-                tipo: 'Obrigatória'
+                categoria: defaults.categoria,
+                prioridade: defaults.prioridade,
+                tipo: 'Obrigatória',
+                meta_leads: defaults.meta_leads || 0,
+                meta_visitas: defaults.meta_visitas || 0
             });
         }
     }, [activity, isOpen]);

@@ -8,7 +8,8 @@ export function useSchedule() {
         activities: rawActivities,
         loading: activitiesLoading,
         updateActivityStatus,
-        deleteActivity
+        deleteActivity,
+        addActivity
     } = useActivities();
 
     // 2. Manage Daily Logs & History
@@ -36,6 +37,7 @@ export function useSchedule() {
     const loading = activitiesLoading || logsLoading;
 
     return {
+        rawActivities,       // RAW list for snapshots/Modals
         activities: todayActivities, // The transformed "Today" list
         yesterdayActivities,         // The combined Yesterday list
         metrics,
@@ -43,6 +45,7 @@ export function useSchedule() {
         historyData,
         updateActivityStatus,
         deleteActivity,
+        addActivity,
         currentMonthStats
     };
 }

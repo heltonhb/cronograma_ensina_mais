@@ -1,6 +1,7 @@
 export interface DailyLog {
     date: string; // YYYY-MM-DD
     leads_novos: number;
+    leads_negativados?: number;
     leads_contatados: number;
     agendamentos: number;
     visitas: number;

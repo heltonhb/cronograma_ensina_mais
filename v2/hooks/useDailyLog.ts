@@ -96,6 +96,7 @@ export function useDailyLog() {
                         return {
                             date: `${dd}/${mm}`,
                             leads_novos: Number(data.leads_novos) || 0,
+                            leads_negativados: Number(data.leads_negativados) || 0,
                             ligacoes: (Number(data.leads_contatados) || 0) + (Number(data.ligacoes) || 0),
                             agendamentos: Number(data.agendamentos) || 0,
                             visitas: Number(data.visitas) || 0,
@@ -103,7 +104,7 @@ export function useDailyLog() {
                         };
                     }
                     const [_, mm, dd] = dateKey.split('-');
-                    return { date: `${dd}/${mm}`, leads_novos: 0, ligacoes: 0, agendamentos: 0, visitas: 0, matriculas: 0 };
+                    return { date: `${dd}/${mm}`, leads_novos: 0, leads_negativados: 0, ligacoes: 0, agendamentos: 0, visitas: 0, matriculas: 0 };
                 });
 
                 const results = await Promise.all(promises);

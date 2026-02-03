@@ -11,13 +11,14 @@ interface DailyLogModalProps {
     isOpen: boolean;
     onClose: () => void;
     todayActivities?: Activity[];
+    allActivities?: Activity[];
     todayMetrics?: {
         completed: number;
         total: number;
     };
 }
 
-export default function DailyLogModal({ isOpen, onClose, todayActivities = [], todayMetrics }: DailyLogModalProps) {
+export default function DailyLogModal({ isOpen, onClose, todayActivities = [], allActivities = [], todayMetrics }: DailyLogModalProps) {
     const { user } = useAuth();
     const [loading, setLoading] = useState(false);
 
@@ -30,6 +31,7 @@ export default function DailyLogModal({ isOpen, onClose, todayActivities = [], t
 
     const [formData, setFormData] = useState<Partial<DailyLog>>({
         leads_novos: 0,
+        leads_negativados: 0,
         leads_contatados: 0,
         agendamentos: 0,
         visitas: 0,
@@ -63,6 +65,7 @@ export default function DailyLogModal({ isOpen, onClose, todayActivities = [], t
             } else {
                 setFormData({
                     leads_novos: 0,
+                    leads_negativados: 0,
                     leads_contatados: 0,
                     agendamentos: 0,
                     visitas: 0,
@@ -96,9 +99,42 @@ export default function DailyLogModal({ isOpen, onClose, todayActivities = [], t
                 return acc;
             }, {} as { [key: string]: number });
 
+            // Calculate stats SPECIFICALLY for the selectedDate
+            // This prevents "Today's" stats (0/0) from overwriting "Yesterday's" stats (e.g. 4/4) when saving yesterday's log.
+            let dateCompleted = 0;
+            let dateTotal = 0;
+
+            if (allActivities.length > 0) {
+                allActivities.forEach(act => {
+                    // Check completion using snapshot logic (was it completed ON or BEFORE selectedDate? 
+                    // and if completed on a future date relative to selectedDate, count as incomplete for history)
+
+                    // Actually, simpler logic for "Status on Date X":
+                    // If status is 'concluido' AND updatedAt date is <= selectedDate (or equal to selectedDate)
+                    // But wait, if I completed it TODAY (21), and I am saving log for YESTERDAY (20), 
+                    // it should count as 'nao_iniciado' for yesterday.
+
+                    const actDate = act.updatedAt ? act.updatedAt.split('T')[0] : '';
+                    const isCompletedOnDate = act.status === 'concluido' && actDate === selectedDate;
+
+                    // Total count logic: If it existed or was valid for that day. 
+                    // For now, we assume all current activities were valid for that day unless created later (which we don't track creationDate well yet).
+                    // We will assume count = allActivities.length for denominator.
+
+                    if (isCompletedOnDate) {
+                        dateCompleted++;
+                    }
+                });
+                dateTotal = allActivities.length;
+            } else {
+                // Fallback if allActivities not provided or empty (rare)
+                dateCompleted = todayMetrics?.completed || 0;
+                dateTotal = todayMetrics?.total || 0;
+            }
+
             const additionalData = {
-                activities_completed: todayMetrics?.completed || 0,
-                activities_total: todayMetrics?.total || 0,
+                activities_completed: dateCompleted,
+                activities_total: dateTotal,
                 productivity_stats
             };
 
@@ -107,6 +143,27 @@ export default function DailyLogModal({ isOpen, onClose, todayActivities = [], t
                 ...additionalData,
                 updatedAt: new Date().toISOString()
             }, { merge: true });
+
+            // Save Schedule Snapshot (Fix for Yesterday's Stats)
+            if (allActivities.length > 0) {
+                const snapshotActivities = allActivities.map(act => {
+                    // Reset completion status if not completed ON the selected date
+                    if (act.status === 'concluido' && act.updatedAt) {
+                        const actDate = act.updatedAt.split('T')[0]; // YYYY-MM-DD
+                        if (actDate !== selectedDate) {
+                            // Completed on a different day? Don't count for selectedDate.
+                            return { ...act, status: 'nao_iniciado' };
+                        }
+                    }
+                    return act;
+                });
+
+                const historyRef = doc(db, 'userData', user.uid, 'scheduleHistory', selectedDate);
+                await setDoc(historyRef, {
+                    date: selectedDate,
+                    activities: snapshotActivities
+                });
+            }
 
             onClose();
         } catch (error) {
@@ -173,6 +230,16 @@ export default function DailyLogModal({ isOpen, onClose, todayActivities = [], t
                                         className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
                                         value={formData.leads_novos}
                                         onChange={(e) => handleChange('leads_novos', e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Leads Negativados</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                                        value={formData.leads_negativados}
+                                        onChange={(e) => handleChange('leads_negativados', e.target.value)}
                                     />
                                 </div>
                                 <div>

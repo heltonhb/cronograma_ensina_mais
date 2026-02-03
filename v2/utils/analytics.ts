@@ -1,5 +1,8 @@
+import { DailyLog } from "../types/dailyLog";
+
 export interface MonthlyStats {
     leads: number;
+    leads_negativados?: number;
     calls: number;
     visits: number;
     sales: number;
@@ -19,8 +22,6 @@ export interface AggregatedStats {
     sales: StatsResult;
     conversion: StatsResult;
 }
-
-import { DailyLog } from "../types/dailyLog";
 
 export const getSmartSixMonthData = (dailyLogs: DailyLog[]): Record<string, MonthlyStats> => {
     const monthlyData: Record<string, MonthlyStats> = {};
@@ -42,11 +43,13 @@ export const getSmartSixMonthData = (dailyLogs: DailyLog[]): Record<string, Mont
         const monthKey = dateKey.substring(0, 7); // "YYYY-MM"
 
         if (!monthlyData[monthKey]) {
-            monthlyData[monthKey] = { leads: 0, calls: 0, visits: 0, sales: 0 };
+            monthlyData[monthKey] = { leads: 0, leads_negativados: 0, calls: 0, visits: 0, sales: 0 };
         }
 
         monthlyData[monthKey].leads += Number(log.leads_novos || 0);
+        monthlyData[monthKey].leads_negativados = (monthlyData[monthKey].leads_negativados || 0) + Number(log.leads_negativados || 0);
         monthlyData[monthKey].sales += Number(log.matriculas || 0);
+
         // visitas_realizadas is legacy/fallback, but not in strict DailyLog type. 
         // Keeping cast if needed or safely removing if confident. 
         // For now, let's trust 'visitas' is the standard field per types/dailyLog.ts

@@ -159,7 +159,7 @@ export default function ReportsModal({ isOpen, onClose }: ReportsModalProps) {
     const funnelData = [
         { label: 'Leads', value: metrics.leads, fill: '#3B82F6', stage: 'leads' },
         { label: 'Contatos', value: metrics.ligacoes, fill: '#8884d8', stage: 'contacts' },
-        { label: 'Agend.', value: metrics.agendamentos, fill: '#06B6D4', stage: 'schedules' },
+        { label: 'Agend.', value: metrics.agendamentos, fill: '#EF4444', stage: 'schedules' },
         { label: 'Visitas', value: metrics.visitas, fill: '#22c55e', stage: 'visits' },
         { label: 'Matrí.', value: metrics.matriculas, fill: '#F59E0B', stage: 'sales' },
     ];
@@ -170,6 +170,7 @@ export default function ReportsModal({ isOpen, onClose }: ReportsModalProps) {
         return {
             date: `${d}/${m}`,
             leads_novos: Number(log.leads_novos) || 0,
+            leads_negativados: Number(log.leads_negativados) || 0,
             ligacoes: Math.max(Number(log.ligacoes) || 0, Number(log.leads_contatados) || 0),
             agendamentos: Number(log.agendamentos) || 0,
             visitas: Number(log.visitas) || 0,
@@ -267,7 +268,7 @@ export default function ReportsModal({ isOpen, onClose }: ReportsModalProps) {
                     <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
                         <MetricCard label="Leads Novos" value={metrics.leads} color="blue" icon="👥" />
                         <MetricCard label="Contatados" value={metrics.ligacoes} color="indigo" icon="📞" />
-                        <MetricCard label="Agendamentos" value={metrics.agendamentos} color="cyan" icon="📅" />
+                        <MetricCard label="Agendamentos" value={metrics.agendamentos} color="red" icon="📅" />
                         <MetricCard label="Visitas" value={metrics.visitas} color="green" icon="📍" />
                         <MetricCard label="Matrículas" value={metrics.matriculas} color="amber" icon="🎓" />
                     </div>
@@ -282,7 +283,7 @@ export default function ReportsModal({ isOpen, onClose }: ReportsModalProps) {
 
                             <div className="mt-4 space-y-3">
                                 <ConversionRow label="Leads → Contato" rate={rates.leadsToContact} color="text-indigo-500" />
-                                <ConversionRow label="Contato → Agend." rate={rates.contactToSchedule} color="text-cyan-500" />
+                                <ConversionRow label="Contato → Agend." rate={rates.contactToSchedule} color="text-red-500" />
                                 <ConversionRow label="Agend. → Visita" rate={rates.scheduleToVisit} color="text-green-500" />
                                 <ConversionRow label="Visita → Matrícula" rate={rates.visitToEnroll} color="text-amber-500" />
                             </div>
@@ -338,6 +339,7 @@ export default function ReportsModal({ isOpen, onClose }: ReportsModalProps) {
                                             return {
                                                 name: `${m}/${y}`,
                                                 leads: d.leads,
+                                                leads_negativados: d.leads_negativados || 0,
                                                 calls: d.calls,
                                                 visits: d.visits,
                                                 sales: d.sales,
@@ -456,21 +458,26 @@ export default function ReportsModal({ isOpen, onClose }: ReportsModalProps) {
 
 // Helpers
 const MetricCard = ({ label, value, color, icon }: any) => {
-    const colors: any = {
-        blue: 'border-l-blue-500 text-blue-600',
-        indigo: 'border-l-indigo-500 text-indigo-600',
-        cyan: 'border-l-cyan-500 text-cyan-600',
-        green: 'border-l-green-500 text-green-600',
-        amber: 'border-l-amber-500 text-amber-600',
+    const theme: any = {
+        blue: { bg: 'bg-blue-50 dark:bg-blue-900/20', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-100 dark:border-blue-800' },
+        indigo: { bg: 'bg-indigo-50 dark:bg-indigo-900/20', text: 'text-indigo-600 dark:text-indigo-400', border: 'border-indigo-100 dark:border-indigo-800' },
+        cyan: { bg: 'bg-cyan-50 dark:bg-cyan-900/20', text: 'text-cyan-600 dark:text-cyan-400', border: 'border-cyan-100 dark:border-cyan-800' },
+        green: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-100 dark:border-emerald-800' },
+        amber: { bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-100 dark:border-amber-800' },
+        red: { bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-600 dark:text-red-400', border: 'border-red-100 dark:border-red-800' },
     };
 
+    const t = theme[color] || theme.blue;
+
     return (
-        <div className={`bg-white dark:bg-zinc-900 p-4 rounded-lg border border-gray-200 dark:border-zinc-800 shadow-sm border-l-4 ${colors[color]}`}>
-            <div className="flex justify-between items-start mb-2">
-                <span className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">{label}</span>
-                <span className="text-lg opacity-80">{icon}</span>
+        <div className={`relative p-5 rounded-2xl border ${t.border} ${t.bg} transition-all duration-200 hover:scale-[1.02] hover:shadow-md`}>
+            <div className="flex justify-between items-start mb-3">
+                <span className={`text-xs font-bold uppercase tracking-wider ${t.text} opacity-90`}>{label}</span>
+                <span className="text-2xl filter drop-shadow-sm">{icon}</span>
             </div>
-            <div className="text-2xl font-bold dark:text-white">{value}</div>
+            <div className="flex items-baseline gap-1">
+                <span className="text-3xl font-extrabold text-gray-800 dark:text-white tracking-tight">{value}</span>
+            </div>
         </div>
     );
 };

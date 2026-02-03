@@ -17,6 +17,7 @@ interface MonthlyPerformanceChartProps {
     data: {
         name: string; // Month name (e.g., "Jan/24")
         leads: number;
+        leads_negativados?: number;
         calls: number;
         visits: number;
         sales: number;
@@ -96,6 +97,7 @@ export default function MonthlyPerformanceChart({ data }: MonthlyPerformanceChar
                         />
 
                         <Bar yAxisId="left" dataKey="leads" name="Leads" fill="#94a3b8" barSize={10} radius={[4, 4, 0, 0]} />
+                        <Bar yAxisId="left" dataKey="leads_negativados" name="Leads Neg." fill="#71717a" barSize={10} radius={[4, 4, 0, 0]} />
                         <Bar yAxisId="left" dataKey="calls" name="Ligações" fill="#3b82f6" barSize={10} radius={[4, 4, 0, 0]} />
                         <Bar yAxisId="left" dataKey="visits" name="Visitas" fill="#f59e0b" barSize={10} radius={[4, 4, 0, 0]} />
                         <Bar yAxisId="left" dataKey="sales" name="Matrículas" fill="#22c55e" barSize={10} radius={[4, 4, 0, 0]} />

@@ -6,6 +6,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { ScriptPhase, ScriptItem } from '../types/scripts';
 import { openWhatsAppChat } from '../services/whatsappService';
+import ScriptGeneratorModal from './ScriptGeneratorModal';
 
 interface ScriptsModalProps {
     isOpen: boolean;
@@ -24,6 +25,7 @@ export default function ScriptsModal({ isOpen, onClose }: ScriptsModalProps) {
     // Modal States for Sub-actions
     const [isPhaseModalOpen, setIsPhaseModalOpen] = useState(false);
     const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
+    const [isAiGeneratorOpen, setIsAiGeneratorOpen] = useState(false);
 
     // Sub-forms Data
     const [editingPhaseIndex, setEditingPhaseIndex] = useState<number | null>(null);
@@ -196,6 +198,14 @@ export default function ScriptsModal({ isOpen, onClose }: ScriptsModalProps) {
                         </div>
                         <button onClick={() => handleOpenPhaseModal()} className="text-blue-600 hover:text-blue-700 font-bold text-xl">+</button>
                     </div>
+                    <div className="p-4 bg-indigo-900/10 border-b border-indigo-100 dark:border-indigo-900/20">
+                        <button
+                            onClick={() => setIsAiGeneratorOpen(true)}
+                            className="w-full py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg text-sm font-bold shadow-md flex items-center justify-center gap-2 transition-all hover:scale-[1.02]"
+                        >
+                            <span>🤖</span> AI Objection Killer
+                        </button>
+                    </div>
                     <div className="flex-1 overflow-y-auto">
                         {phases.map((phase, index) => (
                             <div
@@ -348,6 +358,14 @@ export default function ScriptsModal({ isOpen, onClose }: ScriptsModalProps) {
                                     onChange={e => setScriptFormData({ ...scriptFormData, content: e.target.value })}
                                     placeholder="Olá [Nome], tudo bem?..."
                                 />
+                                <div className="mt-2 flex justify-end">
+                                    <button
+                                        onClick={() => setIsAiGeneratorOpen(true)}
+                                        className="text-xs flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full hover:shadow-lg hover:scale-105 transition-all font-medium"
+                                    >
+                                        <span>✨</span> Gerar sugestão com IA
+                                    </button>
+                                </div>
                             </div>
                             <div className="flex justify-end gap-2 mt-6">
                                 <button onClick={() => setIsScriptModalOpen(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancelar</button>
@@ -357,6 +375,8 @@ export default function ScriptsModal({ isOpen, onClose }: ScriptsModalProps) {
                     </div>
                 </div>
             )}
+
+            <ScriptGeneratorModal isOpen={isAiGeneratorOpen} onClose={() => setIsAiGeneratorOpen(false)} />
         </div>
     );
 }

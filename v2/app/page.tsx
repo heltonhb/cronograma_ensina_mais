@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import StatCard from '../components/StatCard';
 import ScheduleGrid from '../components/ScheduleGrid';
 import { FadeIn, StaggerContainer, StaggerItem } from '../components/MotionWrapper';
@@ -13,6 +13,8 @@ import ReportsModal from '../components/ReportsModal';
 import LoginModal from '../components/LoginModal';
 import PerformanceChart from '../components/PerformanceChart';
 import GamificationWidget from '../components/GamificationWidget';
+import CoachWidget from '../components/CoachWidget';
+import SmartPlannerModal from '../components/SmartPlannerModal';
 import { useSchedule } from '../hooks/useSchedule';
 import { useAuth } from '../contexts/AuthContext';
 import { Activity } from '../types/activity';
@@ -21,7 +23,7 @@ import { auth } from '../lib/firebase';
 import Sidebar from '../components/Sidebar';
 
 export default function Dashboard() {
-  const { activities, yesterdayActivities, metrics, loading, historyData, deleteActivity } = useSchedule();
+  const { activities, rawActivities, yesterdayActivities, metrics, loading, historyData, deleteActivity, addActivity } = useSchedule();
   const { user } = useAuth(); // Get user from context
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -34,8 +36,25 @@ export default function Dashboard() {
   const [isScriptsModalOpen, setIsScriptsModalOpen] = useState(false);
   const [isReportsModalOpen, setIsReportsModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isSmartPlannerOpen, setIsSmartPlannerOpen] = useState(false);
 
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+  const [hasCheckedAutoOpen, setHasCheckedAutoOpen] = useState(false);
+
+  // Auto-open Smart Planner on first daily access
+  useEffect(() => {
+    if (typeof window === 'undefined' || loading || hasCheckedAutoOpen) return;
+
+    const todayStr = new Date().toLocaleDateString('pt-BR');
+    const lastCheck = localStorage.getItem('smartPlannerViewDate');
+
+    // Open if: never opened today, has history data, AND today's schedule is relatively empty
+    if (lastCheck !== todayStr && yesterdayActivities.length > 0) {
+      setIsSmartPlannerOpen(true);
+      localStorage.setItem('smartPlannerViewDate', todayStr);
+    }
+    setHasCheckedAutoOpen(true);
+  }, [loading, yesterdayActivities, activities.length, hasCheckedAutoOpen]);
 
   const handleLogout = () => signOut(auth);
 
@@ -55,6 +74,15 @@ export default function Dashboard() {
     } else if (view === 'login') {
       setIsLoginModalOpen(true);
     }
+  };
+
+  const handleConfirmPlan = async (newActivities: Activity[]) => {
+    // Bulk add
+    for (const act of newActivities) {
+      await addActivity(act);
+    }
+    setIsSmartPlannerOpen(false);
+    // Optional: Toast or feedback
   };
 
   return (
@@ -91,8 +119,15 @@ export default function Dashboard() {
           {/* Actions Top Right */}
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setIsSmartPlannerOpen(true)}
+              className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-1"
+              title="Gerar sugestão baseada em ontem"
+            >
+              <span>✨</span> <span className="hidden md:inline">Planejador IA</span>
+            </button>
+            <button
               onClick={() => { setSelectedActivity(null); setIsModalOpen(true); }}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-1"
+              className="bg-white dark:bg-zinc-800 text-gray-700 dark:text-white border border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700 px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-1"
             >
               <span>+</span>
               <span className="hidden md:inline">Nova Atividade</span>
@@ -201,12 +236,11 @@ export default function Dashboard() {
             <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm space-y-6">
               <GamificationWidget />
 
+              <CoachWidget />
               <SalesForecastWidget />
-              <div>
-                <h3 className="font-bold text-lg mb-4 text-gray-800 dark:text-gray-100">Performance Recente</h3>
-                <div className="h-64">
-                  <PerformanceChart data={historyData || []} />
-                </div>
+              <h3 className="font-bold text-lg mb-4 text-gray-800 dark:text-gray-100">Performance Recente</h3>
+              <div className="h-64">
+                <PerformanceChart data={historyData || []} />
               </div>
             </div>
           </FadeIn>
@@ -284,6 +318,7 @@ export default function Dashboard() {
         isOpen={isDailyLogModalOpen}
         onClose={() => setIsDailyLogModalOpen(false)}
         todayActivities={activities}
+        allActivities={rawActivities}
         todayMetrics={{ completed: metrics.completed, total: metrics.total }}
       />
 
@@ -296,6 +331,14 @@ export default function Dashboard() {
         isOpen={isReportsModalOpen}
         onClose={() => setIsReportsModalOpen(false)}
       />
-    </div>
+
+      <SmartPlannerModal
+        isOpen={isSmartPlannerOpen}
+        onClose={() => setIsSmartPlannerOpen(false)}
+        yesterdayActivities={yesterdayActivities}
+        todayActivities={activities}
+        onConfirmPlan={handleConfirmPlan}
+      />
+    </div >
   );
 }
